@@ -112,20 +112,6 @@ Para cada ficheiro eliminado, o sistema guarda:
 | Empty | 🚧 TODO | Esvaziar reciclagem |
 | Auto-cleanup | 🚧 TODO | Limpeza automática (30 dias) |
 
-## 🤝 Contribuições
-
-Contribuições são bem-vindas! Por favor:
-
-1. Faz fork do projeto
-2. Cria uma branch para a tua feature (`git checkout -b feature/nova-funcionalidade`)
-3. Commit as alterações (`git commit -am 'Adiciona nova funcionalidade'`)
-4. Push para a branch (`git push origin feature/nova-funcionalidade`)
-5. Cria um Pull Request
-
-## 📝 Licença
-
-Este projeto está sob a licença MIT. Ver ficheiro `LICENSE` para mais detalhes.
-
 ## 👨‍💻 Autor
 
 **Simão Pinto**  
