@@ -64,12 +64,12 @@ generate_unique_id() {
 # Parameters: $1 - path to file/directory
 # Returns: 0 on success, 1 on failure
 #################################################
-delete_file() {
-    # TODO: Implement this function
+delete_file() { 
     if [ "$#" -eq 0 ]; then
         echo -e "${RED}Error: No file specified${NC}"
         return 1
     fi
+    
 
     # Your code here
     # Hint: Get file metadata using stat command
@@ -157,6 +157,13 @@ delete_file() {
 # Returns: 0 on success
 #################################################
 list_recycled() {
+    local detailed=false
+    
+    if [ "$2" == "--detailed" ]; then
+        detailed=true
+    fi
+
+    #echo "$detailed"
     echo "=== Recycle Bin Contents ==="
     echo ""
 
@@ -165,15 +172,16 @@ list_recycled() {
 
     tail -n +3 "$METADATA_FILE" | while IFS=',' read -r id name path date size type perms owner; do
         [ -z "$id" ] && continue
-        
+
         readable_size=$(human_readable_size "$size")
-        
-        if [ ${#name} -gt 30 ]; then
-            display_name="${name:0:28}..."
+
+        #echo ${#name}
+        if [ ${#name} -gt 25 ]; then
+            display_name="${name:0:25}..."
         else
             display_name="$name"
         fi
-        
+
         printf "%-18s | %-30s | %-20s | %-10s\n" "$id" "$display_name" "$date" "$readable_size"
     done
 
@@ -183,7 +191,7 @@ list_recycled() {
 
 #################################################
 # Function: human_readable_size
-# Description: Converts file size in bytes to human-readable format
+# Description: Helper funcion which converts file size in bytes to human-readable format (B, KB, MB, GB)
 # Parameters: $1 - file size in bytes
 # Returns: Human-readable file size depending on size
 #################################################
@@ -214,6 +222,8 @@ restore_file() {
         echo -e "${RED}Error: No file ID specified${NC}"
         return 1
     fi
+
+    local 
 
     # Your code here
     # Hint: Search metadata for matching ID
@@ -303,7 +313,7 @@ main() {
             delete_file "$@"
             ;;
         list)
-            list_recycled
+            list_recycled "$@"
             ;;
         restore)
             restore_file "$2"
