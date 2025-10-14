@@ -217,14 +217,51 @@ human_readable_size() {
 restore_file() {
     # TODO: Implement this function
 
+    #1 e 2)
     local file_id="$1"
     if [ -z "$file_id" ]; then
         echo -e "${RED}Error: No file ID specified${NC}"
         return 1
     fi
 
-    local 
+    local input="$1"
+    local entry
 
+    # procurar a linha correspondente no ficheiro metadata
+    # pode corresponder ao ID ou ao nome original (segunda coluna)
+    entry=$(awk -F',' -v q="$input" 'NR>2 && ($1==q || $2==q) {print; exit}' "$METADATA_FILE")
+
+    if [[ -z "$entry" ]]; then
+        echo -e "${RED}Error: No file found with ID or name '$input'${NC}"
+        return 1
+    fi
+
+    echo "Input encontrado: $entry"
+
+    #3)
+
+    IFS=',' read -r id name path date size type perms owner <<< "$entry"    
+    
+    if [[ ! -e "$FILES_DIR/$id" ]]; then
+        echo -e "${RED}Error: File data not found in recycle bin (ID: $id)${NC}"
+        return 1
+    fi 
+
+    local restore_dir
+    restore_dir=$(dirname "$path")
+
+    if [[ ! -d "$restore_dir" ]]; then
+        mkdir -p "$restore_dir"
+    fi
+    
+    mv "$FILES_DIR/$id" "$path"
+    retcode=$?
+
+    if [[ "$retcode" -eq 0 ]]; then
+        echo -e "${GREEN}File restored successfully to $path${NC}"
+    else
+        echo -e "${RED}Error: Failed to restore file${NC}"
+    fi
     # Your code here
     # Hint: Search metadata for matching ID
     # Hint: Get original path from metadata
@@ -282,7 +319,7 @@ SYNOPSIS:
 OPTIONS:
 	delete <file> 		Move file/directory to recycle bin
 	list			List all items in recycle bin
-	restore <id>		Restore file by ID
+	restore <id> or <filename>		Restore file by ID or Name
 	search <pattern>	Search for files by name
 	empty			Empty recycle bin permanently
 	help			Display this help message
@@ -316,7 +353,8 @@ main() {
             list_recycled "$@"
             ;;
         restore)
-            restore_file "$2"
+            shift
+            restore_file "$@"
             ;;
         search)
             search_recycled "$2"
