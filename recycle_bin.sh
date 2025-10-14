@@ -13,6 +13,7 @@ LOG_FILE="$RECYCLE_BIN_DIR/recyclebin.log"
 CONFIG_FILE="$RECYCLE_BIN_DIR/config"
 MAX_SIZE_MB=1024
 RETENTION_DAYS=30 #ainda nao usado
+#teste123
 
 # Color codes for output (optional)
 RED='\033[0;31m'
@@ -156,14 +157,47 @@ delete_file() {
 # Returns: 0 on success
 #################################################
 list_recycled() {
-    # TODO: Implement this function
     echo "=== Recycle Bin Contents ==="
-    # Your code here
-    # Hint: Read metadata file and format output
-    # Hint: Use printf for formatted table
-    # Hint: Skip header line
+    echo ""
 
+    printf "%-18s | %-30s | %-20s | %-10s\n" "Unique ID" "Original Filename" "Deletion Date" "File Size"
+    printf "%-18s-+-%-30s-+-%-20s-+-%-10s\n" "------------------" "------------------------------" "--------------------" "----------"
+
+    tail -n +3 "$METADATA_FILE" | while IFS=',' read -r id name path date size type perms owner; do
+        [ -z "$id" ] && continue
+        
+        readable_size=$(human_readable_size "$size")
+        
+        if [ ${#name} -gt 30 ]; then
+            display_name="${name:0:28}..."
+        else
+            display_name="$name"
+        fi
+        
+        printf "%-18s | %-30s | %-20s | %-10s\n" "$id" "$display_name" "$date" "$readable_size"
+    done
+
+    echo ""
     return 0
+}
+
+#################################################
+# Function: human_readable_size
+# Description: Converts file size in bytes to human-readable format
+# Parameters: $1 - file size in bytes
+# Returns: Human-readable file size depending on size
+#################################################
+human_readable_size() {
+        local size=$1
+        if [ "$size" -lt 1024 ]; then
+            echo "${size}B"
+        elif [ "$size" -lt 1048576 ]; then
+            echo "$((size / 1024))KB"
+        elif [ "$size" -lt 1073741824 ]; then
+            echo "$((size / 1048576))MB"
+        else
+            echo "$((size / 1073741824))GB"
+        fi
 }
 
 #################################################
