@@ -229,7 +229,15 @@ restore_file() {
 
     # procurar a linha correspondente no ficheiro metadata
     # pode corresponder ao ID ou ao nome original (segunda coluna)
-    entry=$(awk -F',' -v q="$input" 'NR>2 && ($1==q || $2==q) {print; exit}' "$METADATA_FILE")
+    entry=$(awk -F',' -v q="$input" '
+        NR>2 {
+            name=$2
+            gsub(/^"|"$/, "", name)   # remove aspas
+            if ($1==q || name==q) {
+                print; exit
+            }
+        }
+    ' "$METADATA_FILE")
 
     if [[ -z "$entry" ]]; then
         echo -e "${RED}Error: No file found with ID or name '$input'${NC}"
