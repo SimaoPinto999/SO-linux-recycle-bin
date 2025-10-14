@@ -112,9 +112,10 @@ Para cada ficheiro eliminado, o sistema guarda:
 | Empty | 🚧 TODO | Esvaziar reciclagem |
 | Auto-cleanup | 🚧 TODO | Limpeza automática (30 dias) |
 
-## 👨‍💻 Autor
+## 👨‍💻 Autores
 
-**Simão Pinto**  
+**Rodrigo Simões**
+**Simão Pinto**
 📅 13/10/2025
 
 ---
