@@ -33,8 +33,7 @@ initialize_recyclebin() {
         mkdir -p "$FILES_DIR"
         touch "$METADATA_FILE"
         echo "# Recycle Bin Metadata" > "$METADATA_FILE"
-        echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELE-
-TION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" >> "$METADATA_FILE"
+        echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" >> "$METADATA_FILE"
 	touch "$LOG_FILE"
 	echo "# Recycle Bin Log" > "$LOG_FILE"
 	touch "$CONFIG_FILE"
@@ -158,34 +157,60 @@ delete_file() {
 #################################################
 list_recycled() {
     local detailed=false
-    
+    local total_size=0
+    local item_count=0
+
     if [ "$2" == "--detailed" ]; then
         detailed=true
     fi
 
-    #echo "$detailed"
-    echo "=== Recycle Bin Contents ==="
-    echo ""
+    #verifica se o lixo está vazio a partir do ficheiro metadata
+    if [ ! -s "$METADATA_FILE" ] || [ $(wc -l < "$METADATA_FILE") -le 2 ]; then
+        echo "O lixo está vazio."
+        return 0
+    fi
 
-    printf "%-18s | %-30s | %-20s | %-10s\n" "Unique ID" "Original Filename" "Deletion Date" "File Size"
-    printf "%-18s-+-%-30s-+-%-20s-+-%-10s\n" "------------------" "------------------------------" "--------------------" "----------"
+    echo -e "\n=============== Recycle Bin Contents ===============\n"
 
-    tail -n +3 "$METADATA_FILE" | while IFS=',' read -r id name path date size type perms owner; do
+    if [ "$detailed" = false ]; then
+        printf "${GREEN}%-18s${NC} | ${GREEN}%-30s${NC} | ${GREEN}%-20s${NC} | ${GREEN}%-10s${NC}\n" "Unique ID" "Original Filename" "Deletion Date" "File Size"
+        printf "%-18s-+-%-30s-+-%-20s-+-%-10s\n" "------------------" "------------------------------" "--------------------" "----------"
+    fi
+
+    while IFS=',' read -r id name path date size type perms owner; do
         [ -z "$id" ] && continue
 
-        readable_size=$(human_readable_size "$size")
+        item_count=$((item_count + 1))
+        total_size=$((total_size + size))
+        
+        local human_size=$(human_readable_size "$size")
 
-        #echo ${#name}
-        if [ ${#name} -gt 25 ]; then
-            display_name="${name:0:25}..."
+        if [ "$detailed" = true ]; then
+            echo -e "${GREEN}--------------- Item $item_count ---------------${NC}"
+            echo "ID:                 $id"
+            echo "Nome Original:      $name"
+            echo "Caminho Original:   $path"
+            echo "Data de Eliminação: $date"
+            echo "Tamanho:            $human_size ($size B)"
+            echo "Tipo:               $type"
+            echo "Permissões:         $perms"
+            echo "Proprietário:       $owner"
         else
-            display_name="$name"
+            local display_name=$(echo "$name" | cut -c 1-25)
+            if [ "${#name}" -gt 25 ]; then
+                display_name="${display_name}..."
+            fi
+
+            printf "%-18s | %-30s | %-20s | %-10s\n" "$id" "$display_name" "$date" "$human_size"
         fi
-
-        printf "%-18s | %-30s | %-20s | %-10s\n" "$id" "$display_name" "$date" "$readable_size"
-    done
-
+    done < <(tail -n +3 "$METADATA_FILE")
+    
+    local total_size_hr=$(human_readable_size "$total_size")
     echo ""
+    echo -e "Total item count: ${GREEN}$item_count${NC}"
+    echo -e "Total storage used: ${GREEN}$total_size_hr ($total_size B)${NC}"
+    echo ""
+
     return 0
 }
 
