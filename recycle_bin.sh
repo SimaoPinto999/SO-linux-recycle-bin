@@ -257,9 +257,12 @@ restore_file() {
 
     local restore_dir
     restore_dir=$(dirname "$path")
-
+    
     if [[ ! -d "$restore_dir" ]]; then
-        mkdir -p "$restore_dir"
+        mkdir -p "$restore_dir" || {
+            echo -e "${RED}Error: failed to create parent directory $restore_dir${NC}"
+            return 1
+        }
     fi
     
     mv "$FILES_DIR/$id" "$path"
@@ -275,15 +278,69 @@ restore_file() {
 
     chmod "$perms" "$path" #2>/dev/null
     if [[ $? -eq 0 ]]; then 
-        echo -e "${GREEN}Restauradas permissões originais: $perms${NC}"
+        echo -e "${GREEN}Restored original permissions: $perms${NC}"
     else
-        echo -e "${YELLOW}Aviso: não foi possível restaurar permissões (${perms})${NC}"
+        echo -e "${YELLOW}Warning: Permission denied (${perms})${NC}"
     fi
     
     #5)
 
-    
+    if grep -q "^$id," "$METADATA_FILE"; then
+        sed -i "/^$id,/d" "$METADATA_FILE"
+        echo -e "${GREEN}Metadata entry for ID '$id' removed.${NC}"
+    else
+        echo -e "${YELLOW}Warning: Metadata entry not found for ID '$id'.${NC}"
+    fi
 
+    #5)
+
+    if [[ -e "$path" ]]; then 
+        echo -e "${YELLOW}Warning: a fole already exists at $path${NC}"
+        PS3="Chose action (1-3): "
+        options=("Overwrite existing file" "Restore with modified name (append timestamp)" "Cancel")
+        select opt in "${option[@]}"; do
+            case $REPLY in
+                1)
+                    if  mv -f -- "$FILES_DIR/$id" "$path"; then
+                        echo -e "${GREEN}Overwrote existing file and restored to $path${NC}"
+                        break
+                    else 
+                        echo -e "${RED}Error: failed to overwrite and restore${NC}"
+                        return 1
+                    fi
+                    ;;
+                2) 
+                    base="$(basename -- "$path")"
+                    dir="$(dirname -- "$path")"
+                    if [[ "$base" == *.* ]]; then
+                        ext=".${base##*.}"
+                        name="${base%.*}"
+                    else
+                        ext=""
+                        name="$base"
+                    fi
+                    ts="$(date +%Y%m%d%H%M%S)"
+                    newbase="${name}_${ts}${ext}"
+                    newpath="$dir/$newbase"
+                    if mv -- "$FILES_DIR/$id" "$newpath"; then
+                        echo -e "${GREEN}Restored as $newpath${NC}"
+                        path="$newpath"
+                        break
+                    else
+                        echo -e "${RED}Error: failed to restore with modified name${NC}"
+                        return 1
+                    fi
+                ;;
+                3)
+                    echo -e "${YELLOW}Restore cancelled by user.${NC}"
+                    return 1
+                    ;;
+                *)
+                    echo "Invalid choise. Enter 1, 2 or 3."
+                    ;;
+            esac
+        done
+    fi
 
     # Your code here
     # Hint: Search metadata for matching ID
