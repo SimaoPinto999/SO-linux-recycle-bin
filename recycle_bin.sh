@@ -295,6 +295,17 @@ restore_file() {
     else
         echo -e "${RED}Error: Failed to restore file${NC}"
     fi
+
+    #4)
+
+    chmod "$perms" "$path" #2>/dev/null
+    if [[ $? -eq 0 ]]; then 
+        echo -e "${GREEN}Restauradas permissões originais: $perms${NC}"
+    else
+        echo -e "${YELLOW}Aviso: não foi possível restaurar permissões (${perms})${NC}"
+    fi
+    
+    #5)
     # Your code here
     # Hint: Search metadata for matching ID
     # Hint: Get original path from metadata
