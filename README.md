@@ -116,7 +116,7 @@ Para cada ficheiro eliminado, o sistema guarda:
 
 **Rodrigo Simões**
 **Simão Pinto**
-📅 13/10/2025
+📅 15/10/2025
 
 ---
 
