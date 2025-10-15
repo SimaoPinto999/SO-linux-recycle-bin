@@ -292,7 +292,7 @@ restore_file() {
         echo -e "${YELLOW}Warning: Metadata entry not found for ID '$id'.${NC}"
     fi
 
-    #5)
+    #6)
 
     if [[ -e "$path" ]]; then 
         echo -e "${YELLOW}Warning: a fole already exists at $path${NC}"
