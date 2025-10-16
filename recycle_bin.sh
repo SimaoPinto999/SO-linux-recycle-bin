@@ -135,6 +135,9 @@ delete_file() {
     	file_type=$([ -d "$file_path" ] && echo "directory" || echo "file")
     	file_perms=$(stat -c %a "$file_path")
     	file_owner=$(stat -c "%U:%G" "$file_path")
+    
+    local escaped_path=$(echo "$file_realpath" | sed 's/[\/&]/\\&/g')
+    sed -i "/$escaped_path/d" "$METADATA_FILE" 2>/dev/null
 
 	mv "$file_realpath" "$FILES_DIR/$file_id"
 	retcode=$?
@@ -240,9 +243,6 @@ human_readable_size() {
 # Returns: 0 on success, 1 on failure
 #################################################
 restore_file() {
-    # TODO: Implement this function
-
-    #1 e 2)
     local file_id="$1"
     if [ -z "$file_id" ]; then
         echo -e "${RED}Error: No file ID specified${NC}"
@@ -252,12 +252,11 @@ restore_file() {
     local input="$1"
     local entry
 
-    # procurar a linha correspondente no ficheiro metadata
-    # pode corresponder ao ID ou ao nome original (segunda coluna)
     entry=$(awk -F',' -v q="$input" '
         NR>2 {
             name=$2
-            gsub(/^"|"$/, "", name)   # remove aspas
+            gsub(/^"|"$/, "", name)
+            
             if ($1==q || name==q) {
                 print; exit
             }
@@ -271,18 +270,26 @@ restore_file() {
 
     echo "Input encontrado: $entry"
 
-    #3)
-
-    IFS=',' read -r id name path date size type perms owner <<< "$entry"    
+    # 2. CARREGAR VARIÁVEIS DE METADADOS
+    # Note que a leitura precisa de usar aspas para lidar com caminhos que contenham vírgulas
+    IFS=',' read -r id name path date size type perms owner <<< "$entry"
     
+    name=$(echo "$name" | tr -d '"')
+    echo "$FILES_DIR/$id"
+    
+    id=${id// /}
+    id=${id//[$'\r']/}
+
+    # 3. VERIFICAÇÃO E CRIAÇÃO DO DIRETÓRIO PAI (do seu #3 original)
     if [[ ! -e "$FILES_DIR/$id" ]]; then
         echo -e "${RED}Error: File data not found in recycle bin (ID: $id)${NC}"
         return 1
-    fi 
+    fi
 
     local restore_dir
     restore_dir=$(dirname "$path")
     
+    # Cria o diretório pai se não existir
     if [[ ! -d "$restore_dir" ]]; then
         mkdir -p "$restore_dir" || {
             echo -e "${RED}Error: failed to create parent directory $restore_dir${NC}"
@@ -290,26 +297,118 @@ restore_file() {
         }
     fi
     
-    mv "$FILES_DIR/$id" "$path"
-    retcode=$?
+    # 4. TRATAMENTO DE CONFLITO E MOVIMENTAÇÃO (Integração de #6 no fluxo de #3)
+    local move_successful=0
 
-    if [[ "$retcode" -eq 0 ]]; then
-        echo -e "${GREEN}File restored successfully to $path${NC}"
+    # Verifica se já existe um ficheiro no destino
+    if [[ -e "$path" ]]; then 
+        
+        echo -e "${YELLOW}Warning: A file already exists at $path. Choose an action:${NC}"
+        PS3="Chose action (1-3): "
+        options=("Overwrite existing file" "Restore with modified name (append timestamp)" "Cancel restore")
+        
+        select opt in "${options[@]}"; do
+            case $REPLY in
+                1)
+                    # Opção 1: Sobrescrever (Overwrite)
+                    if mv -f -- "$FILES_DIR/$id" "$path"; then
+                        echo -e "${GREEN}Overwrote existing file and restored to $path${NC}"
+                        move_successful=1
+                        break
+                    else 
+                        echo -e "${RED}Error: failed to overwrite and restore.${NC}"
+                        return 1
+                    fi
+                    ;;
+                2) 
+                    # Opção 2: Restaurar com Nome Personalizado
+                    local dir="$(dirname -- "$path")"
+                    local newpath=""
+                    local valid_name=0
+
+                    while [[ "$valid_name" -eq 0 ]]; do
+                        # 1. Solicita o novo nome ao utilizador
+                        read -r -p "Enter new filename (e.g., nome_novo.txt): " newbase
+                        
+                        if [[ -z "$newbase" ]]; then
+                            echo -e "${YELLOW}Filename cannot be empty. Please try again.${NC}"
+                            continue
+                        fi
+
+                        newpath="$dir/$newbase"
+                        
+                        # 2. Verifica se o nome escolhido já existe
+                        if [[ -e "$newpath" ]]; then
+                            echo -e "${YELLOW}A file/directory named '$newbase' already exists in the destination. Choose another name or press Enter to try again.${NC}"
+                            # Permite que o loop repita e peça um nome diferente
+                            continue
+                        fi
+                        
+                        # Se não for vazio e não existir, o nome é válido
+                        valid_name=1 
+                    done
+                    
+                    # 3. Movimenta o ficheiro para o novo caminho
+                    if mv -- "$FILES_DIR/$id" "$newpath"; then
+                        echo -e "${GREEN}Restored as $newpath${NC}"
+                        path="$newpath" # CRÍTICO: Atualiza $path para os passos seguintes (chmod/chown/metadata)
+                        move_successful=1
+                        break
+                    else
+                        echo -e "${RED}Error: failed to restore with modified name.${NC}"
+                        return 1
+                    fi
+                    ;;
+                3)
+                    # Opção 3: Cancelar
+                    echo -e "${YELLOW}Restore cancelled by user.${NC}"
+                    return 1
+                    ;;
+                *)
+                    echo "Invalid choice. Enter 1, 2 or 3."
+                    ;;
+            esac
+        done
     else
-        echo -e "${RED}Error: Failed to restore file${NC}"
+        # Se NÃO houver conflito, faz a movimentação simples (do seu #3 original)
+        if mv "$FILES_DIR/$id" "$path"; then
+            echo -e "${GREEN}File restored successfully to $path${NC}"
+            move_successful=1
+        else
+            echo -e "${RED}Error: Failed to restore file (mv command failed).${NC}"
+            return 1 
+        fi
     fi
 
-    #4)
-
-    chmod "$perms" "$path" #2>/dev/null
+    # Se a movimentação falhou por qualquer motivo não capturado, aborta.
+    if [[ "$move_successful" -eq 0 ]]; then
+        echo -e "${RED}Internal Error: File was not moved successfully.${NC}"
+        return 1
+    fi
+    
+    # 5. RESTAURAR PERMISSÕES E PROPRIETÁRIO (Se o ficheiro foi movido com sucesso)
+    
+    # Restaura Permissões (chmod)
+    chmod "$perms" "$path" 2>/dev/null
     if [[ $? -eq 0 ]]; then 
         echo -e "${GREEN}Restored original permissions: $perms${NC}"
     else
-        echo -e "${YELLOW}Warning: Permission denied (${perms})${NC}"
+        echo -e "${YELLOW}Warning: Failed to restore permissions (${perms}). Check execution user.${NC}"
+    fi
+
+    # Restaura Proprietário e Grupo (chown)
+    # A chamada ao 'chown' é feita SEM sudo e o seu erro de sistema é descartado (2>/dev/null).
+    # O script continua e o $? é usado para saber se a operação foi bem-sucedida ou não.
+    if chown "$owner" "$path" 2>/dev/null; then 
+        # Apenas mostra esta mensagem se o chown realmente conseguiu
+        echo -e "${GREEN}Restored original owner: $owner${NC}"
+    else
+        # Se falhou (na maioria dos casos, por falta de root), mostra o nosso aviso
+        echo -e "${YELLOW}Warning: Could not restore ownership to ${owner}. Elevated permissions (root) are required for this step.${NC}"
     fi
     
-    #5)
-
+    # 6. REMOVER REGISTO DE METADADOS (O script chega sempre aqui, independentemente do chown)
+    
     if grep -q "^$id," "$METADATA_FILE"; then
         sed -i "/^$id,/d" "$METADATA_FILE"
         echo -e "${GREEN}Metadata entry for ID '$id' removed.${NC}"
@@ -317,55 +416,8 @@ restore_file() {
         echo -e "${YELLOW}Warning: Metadata entry not found for ID '$id'.${NC}"
     fi
 
-    #6)
-
-    if [[ -e "$path" ]]; then 
-        echo -e "${YELLOW}Warning: a fole already exists at $path${NC}"
-        PS3="Chose action (1-3): "
-        options=("Overwrite existing file" "Restore with modified name (append timestamp)" "Cancel")
-        select opt in "${option[@]}"; do
-            case $REPLY in
-                1)
-                    if  mv -f -- "$FILES_DIR/$id" "$path"; then
-                        echo -e "${GREEN}Overwrote existing file and restored to $path${NC}"
-                        break
-                    else 
-                        echo -e "${RED}Error: failed to overwrite and restore${NC}"
-                        return 1
-                    fi
-                    ;;
-                2) 
-                    base="$(basename -- "$path")"
-                    dir="$(dirname -- "$path")"
-                    if [[ "$base" == *.* ]]; then
-                        ext=".${base##*.}"
-                        name="${base%.*}"
-                    else
-                        ext=""
-                        name="$base"
-                    fi
-                    ts="$(date +%Y%m%d%H%M%S)"
-                    newbase="${name}_${ts}${ext}"
-                    newpath="$dir/$newbase"
-                    if mv -- "$FILES_DIR/$id" "$newpath"; then
-                        echo -e "${GREEN}Restored as $newpath${NC}"
-                        path="$newpath"
-                        break
-                    else
-                        echo -e "${RED}Error: failed to restore with modified name${NC}"
-                        return 1
-                    fi
-                ;;
-                3)
-                    echo -e "${YELLOW}Restore cancelled by user.${NC}"
-                    return 1
-                    ;;
-                *)
-                    echo "Invalid choise. Enter 1, 2 or 3."
-                    ;;
-            esac
-        done
-    fi
+    return 0
+}
 
     # Your code here
     # Hint: Search metadata for matching ID
@@ -373,8 +425,7 @@ restore_file() {
     # Hint: Check if original path exists
     # Hint: Move file back and restore permissions
     # Hint: Remove entry from metadata
-    return 0
-}
+
 
 #################################################
 # Function: empty_recyclebin
