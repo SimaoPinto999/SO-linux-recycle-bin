@@ -450,13 +450,69 @@ empty_recyclebin() {
 # Returns: 0 on success
 #################################################
 search_recycled() {
-    # TODO: Implement this function
     local pattern="$1"
+    local search_results
+    local item_count=0
 
-    # Your code here
-    # Hint: Use grep to search metadata
+    if [ -z "$pattern" ]; then
+        echo -e "${RED}Error: No search pattern specified.${NC}"
+        return 1
+    fi
+    
+    if [ ! -s "$METADATA_FILE" ] || [ $(wc -l < "$METADATA_FILE") -le 2 ]; then
+        echo -e "${YELLOW}The recycle bin is empty. Nothing to search.${NC}"
+        return 0
+    fi
+
+    echo -e "\n=============== Search Results for '${GREEN}$pattern${NC}' ==============\n"
+
+    local safe_pattern=$(escape_regex "$pattern")
+    # O -i faz o search case-insensitive no nome.
+    # O uso do '||' permite procurar o padrão tanto no ID (coluna 1) quanto no nome (coluna 2)
+    search_results=$(tail -n +3 "$METADATA_FILE" | grep -iE "$safe_pattern" || true)
+
+    if [ -z "$search_results" ]; then
+        echo -e "${YELLOW}No items found matching the pattern '$pattern'.${NC}"
+        return 0
+    fi
+    
+    printf "${GREEN}%-18s${NC} | ${GREEN}%-30s${NC} | ${GREEN}%-20s${NC} | ${GREEN}%-10s${NC}\n" "Unique ID" "Original Filename" "Deletion Date" "File Size"
+    printf "%-18s-+-%-30s-+-%-20s-+-%-10s\n" "------------------" "------------------------------" "--------------------" "----------"
+
+    while IFS=',' read -r id name path date size type perms owner; do
+        [ -z "$id" ] && continue
+        
+        name=$(echo "$name" | tr -d '"')
+        
+        item_count=$((item_count + 1))
+        local human_size=$(human_readable_size "$size")
+        
+        local display_name=$(echo "$name" | cut -c 1-25)
+        if [ "${#name}" -gt 25 ]; then
+            display_name="${display_name}..."
+        fi
+
+        printf "%-18s | %-30s | %-20s | %-10s\n" "$id" "$display_name" "$date" "$human_size"
+    done <<< "$search_results"
+
+    echo ""
+    echo -e "Total items found: ${GREEN}$item_count${NC}"
+    echo ""
 
     return 0
+}
+
+#################################################
+# Function: escape_regex
+# Description: Helper function that escapes regex special characters for literal search
+# Parameters: $1 - string to escape
+# Returns: Prints escaped string to stdout
+#################################################
+escape_regex() {
+    # Lista de caracteres de regex a escapar:
+    # . \ + * ? [ ] ^ $ ( ) { } | /
+    local escaped_pattern=$(echo "$1" | sed 's/[.\[\]\*\+\?\\\/\^$(){}|]/\\&/g')
+    echo "$escaped_pattern"
 }
 
 #################################################
