@@ -270,8 +270,6 @@ restore_file() {
 
     echo "Input encontrado: $entry"
 
-    # 2. CARREGAR VARIÁVEIS DE METADADOS
-    # Note que a leitura precisa de usar aspas para lidar com caminhos que contenham vírgulas
     IFS=',' read -r id name path date size type perms owner <<< "$entry"
     
     name=$(echo "$name" | tr -d '"')
@@ -280,7 +278,6 @@ restore_file() {
     id=${id// /}
     id=${id//[$'\r']/}
 
-    # 3. VERIFICAÇÃO E CRIAÇÃO DO DIRETÓRIO PAI (do seu #3 original)
     if [[ ! -e "$FILES_DIR/$id" ]]; then
         echo -e "${RED}Error: File data not found in recycle bin (ID: $id)${NC}"
         return 1
@@ -289,7 +286,6 @@ restore_file() {
     local restore_dir
     restore_dir=$(dirname "$path")
     
-    # Cria o diretório pai se não existir
     if [[ ! -d "$restore_dir" ]]; then
         mkdir -p "$restore_dir" || {
             echo -e "${RED}Error: failed to create parent directory $restore_dir${NC}"
@@ -297,10 +293,8 @@ restore_file() {
         }
     fi
     
-    # 4. TRATAMENTO DE CONFLITO E MOVIMENTAÇÃO (Integração de #6 no fluxo de #3)
     local move_successful=0
 
-    # Verifica se já existe um ficheiro no destino
     if [[ -e "$path" ]]; then 
         
         echo -e "${YELLOW}Warning: A file already exists at $path. Choose an action:${NC}"
@@ -310,7 +304,6 @@ restore_file() {
         select opt in "${options[@]}"; do
             case $REPLY in
                 1)
-                    # Opção 1: Sobrescrever (Overwrite)
                     if mv -f -- "$FILES_DIR/$id" "$path"; then
                         echo -e "${GREEN}Overwrote existing file and restored to $path${NC}"
                         move_successful=1
@@ -321,13 +314,11 @@ restore_file() {
                     fi
                     ;;
                 2) 
-                    # Opção 2: Restaurar com Nome Personalizado
                     local dir="$(dirname -- "$path")"
                     local newpath=""
                     local valid_name=0
 
                     while [[ "$valid_name" -eq 0 ]]; do
-                        # 1. Solicita o novo nome ao utilizador
                         read -r -p "Enter new filename (e.g., nome_novo.txt): " newbase
                         
                         if [[ -z "$newbase" ]]; then
@@ -337,21 +328,17 @@ restore_file() {
 
                         newpath="$dir/$newbase"
                         
-                        # 2. Verifica se o nome escolhido já existe
                         if [[ -e "$newpath" ]]; then
                             echo -e "${YELLOW}A file/directory named '$newbase' already exists in the destination. Choose another name or press Enter to try again.${NC}"
-                            # Permite que o loop repita e peça um nome diferente
                             continue
                         fi
                         
-                        # Se não for vazio e não existir, o nome é válido
                         valid_name=1 
                     done
                     
-                    # 3. Movimenta o ficheiro para o novo caminho
                     if mv -- "$FILES_DIR/$id" "$newpath"; then
                         echo -e "${GREEN}Restored as $newpath${NC}"
-                        path="$newpath" # CRÍTICO: Atualiza $path para os passos seguintes (chmod/chown/metadata)
+                        path="$newpath"
                         move_successful=1
                         break
                     else
@@ -360,7 +347,6 @@ restore_file() {
                     fi
                     ;;
                 3)
-                    # Opção 3: Cancelar
                     echo -e "${YELLOW}Restore cancelled by user.${NC}"
                     return 1
                     ;;
@@ -370,7 +356,6 @@ restore_file() {
             esac
         done
     else
-        # Se NÃO houver conflito, faz a movimentação simples (do seu #3 original)
         if mv "$FILES_DIR/$id" "$path"; then
             echo -e "${GREEN}File restored successfully to $path${NC}"
             move_successful=1
@@ -380,15 +365,12 @@ restore_file() {
         fi
     fi
 
-    # Se a movimentação falhou por qualquer motivo não capturado, aborta.
     if [[ "$move_successful" -eq 0 ]]; then
         echo -e "${RED}Internal Error: File was not moved successfully.${NC}"
         return 1
     fi
     
-    # 5. RESTAURAR PERMISSÕES E PROPRIETÁRIO (Se o ficheiro foi movido com sucesso)
     
-    # Restaura Permissões (chmod)
     chmod "$perms" "$path" 2>/dev/null
     if [[ $? -eq 0 ]]; then 
         echo -e "${GREEN}Restored original permissions: $perms${NC}"
@@ -396,18 +378,12 @@ restore_file() {
         echo -e "${YELLOW}Warning: Failed to restore permissions (${perms}). Check execution user.${NC}"
     fi
 
-    # Restaura Proprietário e Grupo (chown)
-    # A chamada ao 'chown' é feita SEM sudo e o seu erro de sistema é descartado (2>/dev/null).
-    # O script continua e o $? é usado para saber se a operação foi bem-sucedida ou não.
     if chown "$owner" "$path" 2>/dev/null; then 
-        # Apenas mostra esta mensagem se o chown realmente conseguiu
         echo -e "${GREEN}Restored original owner: $owner${NC}"
     else
-        # Se falhou (na maioria dos casos, por falta de root), mostra o nosso aviso
         echo -e "${YELLOW}Warning: Could not restore ownership to ${owner}. Elevated permissions (root) are required for this step.${NC}"
     fi
     
-    # 6. REMOVER REGISTO DE METADADOS (O script chega sempre aqui, independentemente do chown)
     
     if grep -q "^$id," "$METADATA_FILE"; then
         sed -i "/^$id,/d" "$METADATA_FILE"
@@ -419,13 +395,6 @@ restore_file() {
     return 0
 }
 
-    # Your code here
-    # Hint: Search metadata for matching ID
-    # Hint: Get original path from metadata
-    # Hint: Check if original path exists
-    # Hint: Move file back and restore permissions
-    # Hint: Remove entry from metadata
-
 
 #################################################
 # Function: empty_recyclebin
@@ -434,12 +403,109 @@ restore_file() {
 # Returns: 0 on success
 #################################################
 empty_recyclebin() {
-    # TODO: Implement this function
+    local target="$1"
 
-    # Your code here
-    # Hint: Ask for confirmation
-    # Hint: Delete all files in FILES_DIR
-    # Hint: Reset metadata file
+    local skip_confirmation=false
+    
+    #verifica se o primeiro argumento é --force
+    if [[ "$target" == "--force" ]]; then
+        skip_confirmation=true
+        target=""
+    fi
+
+    if [ ! -s "$METADATA_FILE" ] || [[ $(wc -l < "$METADATA_FILE" 2>/dev/null) -le 2 ]]; then
+        echo -e "${YELLOW}The recycle bin is already empty.${NC}"
+        return 0
+    fi
+    
+    #modo1: apaga pelo id
+    if [ -n "$target" ]; then 
+        local id_target="$target"
+        
+        echo -e "${BLUE}Attempting to permanently delete item with ID: $id_target...${NC}"
+
+        local entry
+        entry=$(awk -F',' -v q="$id_target" '
+            # Pesquisa por ID na coluna 1
+            NR>2 && $1==q {
+                print; exit
+            }
+        ' "$METADATA_FILE")
+
+        if [[ -z "$entry" ]]; then
+            echo -e "${RED}Error: No item found with ID '$id_target' in the recycle bin metadata.${NC}"
+            return 1
+        fi
+
+        #extrair e limpar dados
+        IFS=',' read -r id name path date size type perms owner <<< "$entry"
+        
+        id=$(echo "$id" | tr -d '[:space:]')
+        id=${id//[$'\r']/}
+        name=$(echo "$name" | tr -d '"')
+
+        #apagar o ficheiro
+        local file_path_in_trash="$FILES_DIR/$id"
+        
+        if [[ -e "$file_path_in_trash" ]]; then
+            if rm -rf "$file_path_in_trash" 2>/dev/null; then
+                echo -e "${GREEN}Successfully deleted physical file: $name (ID: $id).${NC}"
+            else
+                echo -e "${RED}Error: Failed to delete physical file $name. Check permissions or file lock.${NC}"
+                return 1
+            fi
+        else
+            echo -e "${YELLOW}Warning: Physical file for ID '$id' not found in storage. Cleaning metadata.${NC}"
+        fi
+
+        #remove dados do metadata
+        if grep -q "^$id," "$METADATA_FILE"; then
+            sed -i "/^$id,/d" "$METADATA_FILE" 2>/dev/null
+            echo -e "${GREEN}Metadata entry for '$name' (ID: $id) removed.${NC}"
+        else
+            echo -e "${YELLOW}Warning: Metadata entry for ID '$id' not found after processing.${NC}"
+        fi
+        
+        #log
+        local deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
+        echo "[$deletion_date] Successful [PERMANENT DELETE] $name (ID:$id) from recycle bin." >> "$LOG_FILE"
+        
+    #modo2: apagar tudo
+    else 
+        #confirmação
+        if [[ "$skip_confirmation" != true ]]; then
+            echo -e "${YELLOW}WARNING: This action is irreversible and will permanently delete ALL contents of the recycle bin.${NC}"
+            read -r -p "Are you sure you want to empty the ENTIRE recycle bin? (yes/no): " confirmation
+
+            if [[ ! "$confirmation" =~ ^[Yy][Ee][Ss]$ ]]; then
+                echo -e "${GREEN}Operation cancelled.${NC}"
+                return 0
+            fi
+        fi
+        
+        #apagar ficheiros
+        echo -e "${BLUE}Deleting physical files from $FILES_DIR...${NC}"
+        
+        if find "$FILES_DIR" -mindepth 1 -delete 2>/dev/null; then
+            echo -e "${GREEN}Successfully deleted all files from the recycle bin storage.${NC}"
+        else
+            echo -e "${RED}Error: Failed to delete all physical files from $FILES_DIR. Check permissions.${NC}"
+        fi
+
+        #lmpar metadata
+        if sed -i '3,$d' "$METADATA_FILE" 2>/dev/null; then
+            echo -e "${GREEN}Metadata file successfully cleared.${NC}"
+        else
+            echo -e "${RED}Error: Failed to clear metadata file ($METADATA_FILE).${NC}"
+            return 1
+        fi
+
+        echo -e "${GREEN}Recycle bin successfully emptied.${NC}"
+        
+        #log
+        local deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
+        echo "[$deletion_date] Successful [EMPTY ALL] Recycle bin emptied." >> "$LOG_FILE"
+    fi
     return 0
 }
 
@@ -633,12 +699,14 @@ SYNOPSIS:
 	$0 [OPTION] [ARGUMENTS]
 
 OPTIONS:
-	delete <file> 		Move file/directory to recycle bin
-	list			List all items in recycle bin
-	restore <id> or <filename>		Restore file by ID or Name
-	search <pattern>	Search for files by name
-	empty			Empty recycle bin permanently
-	help			Display this help message
+	1. delete <file>-------------------Move file/directory to recycle bin
+	2. list----------------------------List all items in recycle bin
+	3. restore <id> or <filename>------Restore file by ID or Name
+	4. search <pattern>----------------Search for files by name
+	5. empty---------------------------Permanently delete all items
+        6. empty <ID>----------------------Delete single item by ID 
+        7. empty --force ------------------Flag to skip delete confirmation 
+	8. help----------------------------Display this help message
 EXAMPLES:
 	$0 delete myfile.txt
 	$0 list
@@ -676,7 +744,7 @@ main() {
             search_recycled "$2"
             ;;
         empty)
-            empty_recyclebin
+            empty_recyclebin "$2"
             ;;
         help|--help|-h)
             display_help
