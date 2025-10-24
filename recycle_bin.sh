@@ -467,8 +467,6 @@ search_recycled() {
     echo -e "\n=============== Search Results for '${GREEN}$pattern${NC}' ==============\n"
 
     local safe_pattern=$(escape_regex "$pattern")
-    # O -i faz o search case-insensitive no nome.
-    # O uso do '||' permite procurar o padrão tanto no ID (coluna 1) quanto no nome (coluna 2)
     search_results=$(tail -n +3 "$METADATA_FILE" | grep -iE "$safe_pattern" || true)
 
     if [ -z "$search_results" ]; then
@@ -513,6 +511,112 @@ escape_regex() {
     # . \ + * ? [ ] ^ $ ( ) { } | /
     local escaped_pattern=$(echo "$1" | sed 's/[.\[\]\*\+\?\\\/\^$(){}|]/\\&/g')
     echo "$escaped_pattern"
+}
+
+#################################################
+# Function: show_statistics
+# Description: Displays statistics about the recycle bin contents.
+# Parameters: None
+# Returns: 0 on success
+#################################################
+
+show_statistics(){
+    local item_count=0
+    local total_size_bytes=0
+    local file_count=0
+    local dir_count=0
+    local oldest_date=""
+    local newest_date=""
+    local newest_item=""
+    local oldest_item=""
+    local count_loop=0 # Para calcular a média
+
+    if [ ! -s "$METADATA_FILE" ] || [ $(wc -l < "$METADATA_FILE") -le 2 ]; then
+        echo -e "${YELLOW}The recycle bin is empty. Nothing to show.${NC}"
+        return 0
+    fi
+
+    echo -e "\n=============== Recycle Bin Statistics ==============="
+
+    while IFS=',' read -r id name path date size type perms owner; do
+        if [ "$id" = "ID" ] || [ "$id" = "# Recycle Bin Metadata" ]; then
+            continue
+        fi
+
+        if ! [[ "$size" =~ ^[0-9]+$ ]]; then
+            size=0
+        fi
+
+        item_count=$((item_count + 1))
+        total_size_bytes=$((total_size_bytes + size))
+        count_loop=$((count_loop + 1))
+
+        if [ "$type" = "file" ]; then
+            file_count=$((file_count + 1))
+        elif [ "$type" = "directory" ]; then
+            dir_count=$((dir_count + 1))
+        fi
+
+        local current_timestamp=$(date -d "$date" +%s)
+        
+        if [ -z "$oldest_date" ] || [ "$current_timestamp" -lt "$(date -d "$oldest_date" +%s)" ]; then
+            oldest_date="$date"
+            oldest_item="$name"
+        fi
+
+        if [ -z "$newest_date" ] || [ "$current_timestamp" -gt "$(date -d "$newest_date" +%s)" ]; then
+            newest_date="$date"
+            newest_item="$name"
+        fi
+
+    done < "$METADATA_FILE"
+
+    echo -e "${GREEN}Total Items:${NC} $item_count"
+    
+    echo "- Files: $file_count ($(calculate_percentage $file_count $item_count)%)"
+    echo "- Directories: $dir_count ($(calculate_percentage $dir_count $item_count)%)"
+
+    local avg_size_bytes=0
+    if [ "$item_count" -gt 0 ]; then
+        # Nota: Usamos 'bc' para garantir a divisão correta (ponto flutuante)
+        avg_size_bytes=$(echo "scale=0; $total_size_bytes / $item_count" | bc)
+    fi
+    local avg_size_hr=$(human_readable_size "$avg_size_bytes")
+    echo -e "${GREEN}Average Item Size:${NC} $avg_size_hr"
+
+    local max_size_bytes=$((MAX_SIZE_MB * 1024 * 1024))
+    local usage_percentage=$(calculate_percentage $total_size_bytes $max_size_bytes)
+    local total_size_hr=$(human_readable_size "$total_size_bytes")
+
+    echo -e "${GREEN}Storage Used:${NC} $total_size_hr"
+    echo "- Max Size: ${MAX_SIZE_MB}MB"
+    echo "- Usage Percentage: ${usage_percentage}%"
+
+    # Requisito 4: Show oldest and newest items
+    echo -e "${GREEN}Age Analysis:${NC}"
+    echo "- Oldest Change: $oldest_item (Date: $oldest_date)"
+    echo "- Newest Change: $newest_item (Date: $newest_date)"
+
+    echo "===================================================="
+
+    return 0
+}
+
+#################################################
+# Function: calculate_percentage
+# Description: Helper function which calculates the percentage of a value relative to a total
+# Parameters: $1 - value, $2 - total
+# Returns: Prints percentage rounded to 2 decimal places
+#################################################
+calculate_percentage() {
+    local value=$1
+    local total=$2
+    if [ "$total" -eq 0 ]; then
+        echo "0.00"
+        return
+    fi
+
+    echo "scale=2; ($value / $total) * 100" | bc
 }
 
 #################################################
@@ -576,6 +680,9 @@ main() {
             ;;
         help|--help|-h)
             display_help
+            ;;
+        statistics)
+            show_statistics
             ;;
         *)
             echo "Invalid option. Use 'help' for usage information."
