@@ -1,8 +1,8 @@
 # Linux Recycle Bin System
 
 ## Authors
-Rodrigo Simões - 125514
-Simão Pinto - 126099
+* Rodrigo Simões - 125514
+* Simão Pinto - 126099
 
 ## Description
 This project is a Recycle Bin simulator for Linux-based systems, implemented entirely in **Shell Script (Bash)**. Developed as part of the **"Sistemas Operativos"** university course, the goal is to provide a safe alternative to the dangerous `rm` command, allowing users to move files and directories to a quarantine area where they can be inspected, restored to their original location, or permanently deleted.
@@ -12,26 +12,27 @@ The system maintains detailed metadata (original name, source path, deletion dat
 ## Installation
 No complex installation is required, as the system is a *standalone* Bash script.
 
-1.  **Create the file:** Save the main code (including the `delete_file`, `restore_file`, etc. functions) into a file named `lixeira.sh` (or `recycle_bin.sh`).
+1.  **Create the file:** Save the main code (including the `delete_file`, `restore_file`, etc. functions) into a file named `recycle_bin.sh`.
 2.  **Grant execute permission:**
     ```bash
-    chmod +x lixeira.sh
+    chmod +x recycle_bin.sh
     ```
 3.  **Initialization:** The script automatically initializes the directory structure (`$HOME/.recycle_bin`) upon the first execution of any command.
 
 ## Usage
 All commands are executed through the main script file.
 
-| Action | Syntax |
-| **Delete** | `$0 delete <file(s)>` |
-| **List** | `$0 list [--detailed]` |
-| **Restore** | `$0 restore <ID | Name>` |
-| **Search** | `$0 search <pattern>` |
-| **Statistics**| `$0 statistics` |
-| **Empty All** | `$0 empty` |
-| **Delete Item** | `$0 empty <ID>` |
-| **Force Empty** | `$0 empty --force` |
-| **Help** | `$0 <help | --help | -h>` |
+Action | Syntax
+
+* **Delete** | `$0 delete <file(s)>` 
+* **List** | `$0 list [--detailed]` 
+* **Restore** | `$0 restore <ID | Name>` 
+* **Search** | `$0 search <pattern>` 
+* **Statistics**| `$0 statistics` 
+* **Empty All** | `$0 empty` 
+* **Delete Item** | `$0 empty <ID>` 
+* **Force Empty** | `$0 empty --force` 
+* **Help** | `$0 <help | --help | -h>` 
 
 ## Features
 ### Core Functionality
@@ -57,10 +58,13 @@ All commands are executed through the main script file.
 ## Configuration
 The main configurations are defined in the header of the script.
 
-| Variable | Default Value | Description |
-| `RECYCLE_BIN_DIR` | `$HOME/.recycle_bin` | Directory where the recycle bin is created. |
-| `MAX_SIZE_MB` | `1024` | Maximum size limit (in MB) a single file/directory can have to be moved to the recycle bin. |
-| `RETENTION_DAYS` | `30` | Days of file retention before automatic cleanup (currently a **TODO** function). |
+Variable | Default Value | Description
+
+* `RECYCLE_BIN_DIR` | `$HOME/.recycle_bin` | Directory where the recycle bin is created.
+
+* `MAX_SIZE_MB` | `1024` | Maximum size limit (in MB) a single file/directory can have to be moved to the recycle bin.
+
+* `RETENTION_DAYS` | `30` | Days of file retention before automatic cleanup (currently a **TODO** function).
 
 ## Examples
 [Detailed usage examples with screenshots]
@@ -72,4 +76,4 @@ The main configurations are defined in the header of the script.
 ## References
 - Bash Shell Programming Documentation (Gnu/Linux)
 - `stat`, `grep`, `sed`, `awk`, `bc` utility documentation.
-- **AI Assistance:** Architectural design review and debugging assistance provided by **Gemini** (a large language model trained by Google).
+- **AI Assistance:** Architectural design review and debugging assistance provided by **Gemini** (a LLM by Google).

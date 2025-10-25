@@ -169,7 +169,7 @@ list_recycled() {
 
     #verifica se o lixo está vazio a partir do ficheiro metadata
     if [ ! -s "$METADATA_FILE" ] || [ $(wc -l < "$METADATA_FILE") -le 2 ]; then
-        echo "O lixo está vazio."
+        echo -e "${YELLOW}The recycle bin is empty. Nothing to show.${NC}"
         return 0
     fi
 
@@ -224,12 +224,12 @@ list_recycled() {
 # Returns: Human-readable file size depending on size
 #################################################
 human_readable_size() {
-        local size=$1
+        local size=$1   
         if [ "$size" -lt 1024 ]; then
             echo "${size}B"
-        elif [ "$size" -lt 1048576 ]; then
+        elif [ "$size" -lt 1048576 ]; then #1024**2
             echo "$((size / 1024))KB"
-        elif [ "$size" -lt 1073741824 ]; then
+        elif [ "$size" -lt 1073741824 ]; then #1024**3
             echo "$((size / 1048576))MB"
         else
             echo "$((size / 1073741824))GB"
@@ -683,6 +683,47 @@ calculate_percentage() {
     fi
 
     echo "scale=2; ($value / $total) * 100" | bc
+}
+
+#################################################
+# Function: auto_cleanup
+# Description: Permanently deletes files older than RETENTION_DAYS
+# Parameters: None
+# Returns: 0 on success
+#################################################
+auto_cleanup() {
+    local deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
+    local removed_count=0
+    
+    echo "[$deletion_date] Running [AUTO CLEANUP] for items older than $RETENTION_DAYS days..." >> "$LOG_FILE"
+    
+    find "$FILES_DIR" -type f -mtime +"$RETENTION_DAYS" -print0 | while IFS= read -r -d $'\0' expired_path; do
+        local expired_id=$(basename "$expired_path")
+        
+        if grep -q "^$expired_id," "$METADATA_FILE"; then
+            sed -i "/^$expired_id,/d" "$METADATA_FILE" 2>/dev/null
+            
+            if rm -rf "$expired_path" 2>/dev/null; then
+                removed_count=$((removed_count + 1))
+                echo "[$deletion_date] Successful [CLEANUP] Item ID: $expired_id permanently removed." >> "$LOG_FILE"
+            else
+                echo "[$deletion_date] ERROR [CLEANUP] Failed to remove physical file: $expired_path." >> "$LOG_FILE"
+            fi
+        else
+            if rm -rf "$expired_path" 2>/dev/null; then
+                echo "[$deletion_date] Successful [CLEANUP] Removed orphan file: $expired_id." >> "$LOG_FILE"
+            fi
+        fi
+
+    done
+
+    if [ "$removed_count" -gt 0 ]; then
+        echo -e "${GREEN}Cleanup finished! $removed_count item(s) older than $RETENTION_DAYS days were permanently deleted.${NC}"
+    else
+        echo -e "${YELLOW}Cleanup finished! No items older than $RETENTION_DAYS days found for deletion.${NC}"
+    fi
+    
+    return 0
 }
 
 #################################################
