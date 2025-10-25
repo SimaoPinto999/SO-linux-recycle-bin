@@ -1,123 +1,75 @@
-# Linux Recycle Bin Simulation
+# Linux Recycle Bin System
 
-Um sistema de reciclagem para Linux implementado em Shell Script que simula o comportamento de uma "Lixeira" similar ao Windows/macOS.
+## Authors
+Rodrigo Simões - 125514
+Simão Pinto - 126099
 
-## 📋 Funcionalidades
+## Description
+This project is a Recycle Bin simulator for Linux-based systems, implemented entirely in **Shell Script (Bash)**. Developed as part of the **"Sistemas Operativos"** university course, the goal is to provide a safe alternative to the dangerous `rm` command, allowing users to move files and directories to a quarantine area where they can be inspected, restored to their original location, or permanently deleted.
 
-- ✅ **Delete**: Move ficheiros/diretórios para a reciclagem
-- 🚧 **List**: Lista todos os items na reciclagem (TODO)
-- 🚧 **Restore**: Restaura ficheiros pelo ID único (TODO)
-- 🚧 **Search**: Procura ficheiros por padrão (TODO)
-- 🚧 **Empty**: Esvazia permanentemente a reciclagem (TODO)
+The system maintains detailed metadata (original name, source path, deletion date, permissions, and owner) to ensure accurate and complete restoration.
 
-## 🚀 Instalação
+## Installation
+No complex installation is required, as the system is a *standalone* Bash script.
 
-1. Clona o repositório:
-```bash
-git clone https://github.com/teu-usuario/linux-recycle-bin.git
-cd linux-recycle-bin
-```
+1.  **Create the file:** Save the main code (including the `delete_file`, `restore_file`, etc. functions) into a file named `lixeira.sh` (or `recycle_bin.sh`).
+2.  **Grant execute permission:**
+    ```bash
+    chmod +x lixeira.sh
+    ```
+3.  **Initialization:** The script automatically initializes the directory structure (`$HOME/.recycle_bin`) upon the first execution of any command.
 
-2. Dá permissões de execução:
-```bash
-chmod +x recycle_bin.sh
-```
+## Usage
+All commands are executed through the main script file.
 
-3. (Opcional) Move para uma pasta no PATH:
-```bash
-sudo cp recycle_bin.sh /usr/local/bin/recycle_bin
-```
+| Action | Syntax |
+| **Delete** | `$0 delete <file(s)>` |
+| **List** | `$0 list [--detailed]` |
+| **Restore** | `$0 restore <ID | Name>` |
+| **Search** | `$0 search <pattern>` |
+| **Statistics**| `$0 statistics` |
+| **Empty All** | `$0 empty` |
+| **Delete Item** | `$0 empty <ID>` |
+| **Force Empty** | `$0 empty --force` |
+| **Help** | `$0 <help | --help | -h>` |
 
-## 💻 Uso
+## Features
+### Core Functionality
+- **Delete (`delete`):** Moves files and directories to quarantine.
+- **Metadata Management:** Stores the original path, date, permissions, and file owner.
+- **Restore (`restore`):** Restores files to the original path, recovering permissions and owner (subject to execution permissions).
+- **Conflict Resolution:** During restoration, detects name conflicts and allows overwriting or renaming.
+- **Search (`search`):** Allows searching for items by ID, name, or original path.
+- **Storage Limits:** Checks file size and available space before deletion/moving.
+- **Log Management:** Logs all deletion and emptying operations.
 
-### Comandos Disponíveis
+### Advanced Features
+- **Statistics (`statistics`):** Displays detailed metrics:
+    - Total item count.
+    - Total space used and quota percentage (`MAX_SIZE_MB=1024`).
+    - Breakdown by type (files vs. directories).
+    - Age analysis (oldest and newest item).
+- **Permanent Delete (`empty`):**
+    - Selective deletion by ID (`$0 empty <ID>`).
+    - Total emptying (`$0 empty`).
+    - Supports the `--force` flag for complete emptying without confirmation.
 
-```bash
-# Eliminar ficheiro/diretório
-./recycle_bin.sh delete arquivo.txt
-./recycle_bin.sh delete pasta/
+## Configuration
+The main configurations are defined in the header of the script.
 
-# Listar items na reciclagem
-./recycle_bin.sh list
+| Variable | Default Value | Description |
+| `RECYCLE_BIN_DIR` | `$HOME/.recycle_bin` | Directory where the recycle bin is created. |
+| `MAX_SIZE_MB` | `1024` | Maximum size limit (in MB) a single file/directory can have to be moved to the recycle bin. |
+| `RETENTION_DAYS` | `30` | Days of file retention before automatic cleanup (currently a **TODO** function). |
 
-# Restaurar ficheiro pelo ID
-./recycle_bin.sh restore 1696234567_abc123
+## Examples
+[Detailed usage examples with screenshots]
 
-# Procurar ficheiros
-./recycle_bin.sh search "*.pdf"
+## Known Issues
+- TODO: **Automatic Cleanup:** Implement automatic cleanup of files based on age (`RETENTION_DAYS=30`).
+- Large Files: Files larger than MAX_SIZE_MB (default 1024MB) are rejected upon deletion.
 
-# Esvaziar reciclagem
-./recycle_bin.sh empty
-
-# Ajuda
-./recycle_bin.sh help
-```
-
-### Exemplos Práticos
-
-```bash
-# Eliminar múltiplos ficheiros
-./recycle_bin.sh delete file1.txt file2.txt pasta/
-
-# Ver conteúdo da reciclagem
-./recycle_bin.sh list
-```
-
-## 📁 Estrutura do Sistema
-
-O script cria a seguinte estrutura em `~/.recycle_bin/`:
-
-```
-~/.recycle_bin/
-├── files/           # Ficheiros eliminados (com IDs únicos)
-├── metadata.db      # Base de dados com metadados
-├── recyclebin.log   # Logs das operações
-└── config           # Ficheiro de configuração
-```
-
-## ⚙️ Configuração
-
-- **Tamanho máximo**: 1024MB por ficheiro/diretório
-- **Retenção**: 30 dias (funcionalidade futura)
-- **Localização**: `~/.recycle_bin/`
-
-## 🔧 Funcionalidades de Segurança
-
-- ✅ Verificação de permissões
-- ✅ Proteção contra eliminação da própria reciclagem
-- ✅ Verificação de espaço em disco
-- ✅ Limite de tamanho de ficheiros
-- ✅ Logging detalhado de operações
-
-## 📊 Metadados Guardados
-
-Para cada ficheiro eliminado, o sistema guarda:
-- ID único
-- Nome original
-- Caminho original
-- Data/hora de eliminação
-- Tamanho
-- Tipo (ficheiro/diretório)
-- Permissões
-- Proprietário
-
-## 🐛 Status de Desenvolvimento
-
-| Funcionalidade | Status | Descrição |
-|----------------|--------|-----------|
-| Delete | ✅ Completa | Eliminação com validações |
-| List | 🚧 TODO | Listar items na reciclagem |
-| Restore | 🚧 TODO | Restaurar por ID |
-| Search | 🚧 TODO | Pesquisa por padrão |
-| Empty | 🚧 TODO | Esvaziar reciclagem |
-| Auto-cleanup | 🚧 TODO | Limpeza automática (30 dias) |
-
-## 👨‍💻 Autores
-
-**Rodrigo Simões**
-**Simão Pinto**
-📅 15/10/2025
-
----
-
-💡 **Nota**: Este é um projeto educacional para demonstrar conceitos de shell scripting e gestão de ficheiros em Linux.
+## References
+- Bash Shell Programming Documentation (Gnu/Linux)
+- `stat`, `grep`, `sed`, `awk`, `bc` utility documentation.
+- **AI Assistance:** Architectural design review and debugging assistance provided by **Gemini** (a large language model trained by Google).
