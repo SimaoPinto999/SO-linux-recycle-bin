@@ -726,6 +726,122 @@ auto_cleanup() {
     return 0
 }
 
+check_quota() {
+    #o MAX_SIZE_MB está em MB, mas o du -sb dá a saída em bytes.
+    local max_size_bytes=$((MAX_SIZE_MB * 1024 * 1024))
+    local current_size_bytes=0
+
+    #calcular o tamanho atual
+    if [ -d "$FILES_DIR" ]; then
+        current_size_bytes=$(du -sb "$FILES_DIR" 2>/dev/null | cut -f1)
+    fi
+
+    #verificar se o size for 0, ou seja, se for zero está vazio 
+    if [ -z "$current_size_bytes" ]; then
+        current_size_bytes=0
+    fi
+    
+    #converter o current sizer de bytes para megabytes 
+    local current_size_mb=$((current_size_bytes / 1024 / 1024))
+    
+    #verificar se o current size é maior que o maximo size bytes 
+    if [ "$current_size_bytes" -gt "$max_size_bytes" ]; then
+        
+        echo -e "\n${RED}================== QUOTA EXCEDIDA ===================${NC}"
+        echo -e "${RED}WARNING:${NC} O Recycle Bin excedeu o limite máximo de ${MAX_SIZE_MB}MB."
+        echo -e "${RED}Uso Atual:${NC} ${current_size_mb}MB (Limite: ${MAX_SIZE_MB}MB)"
+        echo -e "${RED}=====================================================${NC}\n"
+
+        #usar auto_cleanup 
+        if command -v auto_cleanup >/dev/null 2>&1; then
+            echo -e "${YELLOW}A iniciar limpeza automática (auto_cleanup) para liberar espaço...${NC}"
+            
+            if auto_cleanup; then
+                echo -e "${GREEN}Limpeza automática concluída com sucesso. Por favor, verifique o quota novamente.${NC}"
+            else
+                echo -e "${RED}Erro: A limpeza automática falhou em liberar espaço. Quota continua excedida.${NC}"
+                return 2
+            fi
+            
+        else
+            echo -e "${YELLOW}AVISO: A função auto_cleanup não está acessível. A limpeza automática não pode ser executada.${NC}"
+        fi
+        
+        return 1
+    else
+        #quota ok
+        local current_size_hr=$(human_readable_size "$current_size_bytes")
+        echo -e "${BLUE}Quota Check OK:${NC} Uso atual: ${current_size_hr} (Limite: ${MAX_SIZE_MB}MB)"
+        return 0 
+    fi
+}
+
+preview_file() {
+    local id_target="$1"
+
+    if [ -z "$id_target" ]; then
+        echo -e "${RED}Error: No file ID specified for preview.${NC}"
+        return 1
+    fi
+
+    #pesquisar no metadata, se não for encontrado um id_target igual ao $1 do metadata dá erro 
+    local entry
+    entry=$(awk -F',' -v q="$id_target" '
+        NR>2 && $1==q {
+            print; exit
+        }
+    ' "$METADATA_FILE")
+
+    if [[ -z "$entry" ]]; then
+        echo -e "${RED}Error: Item with ID '$id_target' not found in the recycle bin.${NC}"
+        return 1
+    fi
+
+    #extrair info
+    IFS=',' read -r id name path date size type perms owner <<< "$entry"
+    
+    id=$(echo "$id" | tr -d '[:space:]')
+    id=${id//[$'\r']/}
+    name=$(echo "$name" | tr -d '"')
+
+    local file_path_in_trash="$FILES_DIR/$id"
+    
+    #verificar se o ficheiro realmente existe no lixo
+    if [[ ! -e "$file_path_in_trash" ]]; then
+        echo -e "${RED}Error: File data for ID '$id' is missing from storage (${FILES_DIR}).${NC}"
+        return 1
+    fi
+
+
+    #preview do ficheiro
+    echo -e "\n${BLUE}========== Preview for ${name} (ID: ${id}) ==========${NC}"
+    echo "Tipo: $type"
+    echo "Caminho Original: $path"
+    echo "Data de Eliminação: $date"
+    echo "Tamanho: $(human_readable_size "$size")"
+
+    #determinar o tipo de ficheiro e mostrar o conteudo
+    local file_type_info=$(file -b "$file_path_in_trash")
+
+    #verifica se é um ficheiro texto
+    if [[ "$file_type_info" =~ text|script ]]; then
+        echo -e "${GREEN}--- Primeiras 10 linhas (Texto/Script) ---${NC}"
+        head -n 10 "$file_path_in_trash"
+        echo -e "${GREEN}------------------------------------------${NC}"
+        
+    #trata de ficheiro binário
+    else
+        echo -e "${YELLOW}--- Ficheiro Binário/Não-Texto Detectado ---${NC}"
+        echo "Informação Detalhada do Ficheiro (comando 'file'):"
+        echo -e "-> ${file_type_info}"
+        echo -e "${YELLOW}--- Não é possível mostrar o conteúdo ---${NC}"
+    fi
+
+    echo -e "${BLUE}===================================================${NC}\n"
+    
+    return 0
+}
+
 #################################################
 # Function: display_help
 # Description: Shows usage information
@@ -744,10 +860,12 @@ OPTIONS:
 	2. list----------------------------List all items in recycle bin
 	3. restore <id> or <filename>------Restore file by ID or Name
 	4. search <pattern>----------------Search for files by name
-	5. empty---------------------------Permanently delete all items
-        6. empty <ID>----------------------Delete single item by ID 
-        7. empty --force ------------------Flag to skip delete confirmation 
-	8. help----------------------------Display this help message
+	5. preview <ID>--------------------Show first 10 lines of a text file
+	6. quota---------------------------Check storage usage against MAX_SIZE 
+	7. empty---------------------------Permanently delete all items
+	    8. empty <ID>----------------------Delete single item by ID
+	    9. empty --force ------------------Flag to skip delete confirmation  
+	10. help----------------------------Display this help message
 EXAMPLES:
 	$0 delete myfile.txt
 	$0 list
@@ -783,6 +901,12 @@ main() {
             ;;
         search)
             search_recycled "$2"
+            ;;
+        preview)
+            preview_file "$2"
+            ;;
+        quota)
+            check_quota
             ;;
         empty)
             empty_recyclebin "$2"
