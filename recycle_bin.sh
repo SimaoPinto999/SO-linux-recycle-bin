@@ -29,7 +29,7 @@ NC='\033[0m' # No Color
 #################################################
 initialize_recyclebin() {
     if [ ! -d "$RECYCLE_BIN_DIR" ]; then
-	echo "Criando pasta do recyle_bin..."
+	echo "Creating recycle_bin directory..."
         mkdir -p "$FILES_DIR"
         touch "$METADATA_FILE"
         echo "# Recycle Bin Metadata" > "$METADATA_FILE"
@@ -69,87 +69,91 @@ delete_file() {
         return 1
     fi
     
-
     # Your code here
     # Hint: Get file metadata using stat command
     # Hint: Generate unique ID
     # Hint: Move file to FILES_DIR with unique ID
     # Hint: Add entry to metadata file
 
-
+    local exit_code=0
     local paths=("$@")
 
     for file_path in "${paths[@]}"; do
-	echo "Delete function called with: $file_path"
+        echo "Delete function called with: $file_path"
 
-    	# Check if file exists
-    	if [ ! -e "$file_path" ]; then
-            echo -e "${RED}Error: File '$file_path' does not exist${NC}"
-            continue
-    	fi
+            if [ ! -e "$file_path" ]; then
+                echo -e "${RED}Error: File '$file_path' does not exist${NC}"
+                exit_code=1
+                continue
+            fi
 
-	#verifica as permissoes do ficheiro
-	if [ ! -r "$file_path" ] || [ ! -w "$file_path" ]; then
-            echo -e "${RED}Error: No read/write permission for '$file_path'${NC}"
-            continue
-   	fi
-
-	file_realpath=$(realpath "$file_path")
-	recycle_bin_realpath=$(realpath "$RECYCLE_BIN_DIR")
-
-	#verifica se é o recycle bin
-    	if [[ "$file_realpath" == "$recycle_bin_realpath"* ]]; then
-        	echo -e "${RED}Error: Cannot delete the recycle bin directory itself or its contents.${NC}"
-        	continue
-   	 fi
-
-	#Calcular o tamanho do ficheiro/diretorio
-	if [ -d "$file_path" ]; then
-    	    file_size_bytes=$(du -sb "$file_path" | cut -f1)
-	else
-    	    file_size_bytes=$(stat -c %s "$file_path")
-	fi
-
-	file_size_mb=$((file_size_bytes / 1024 / 1024))
-
-	if [ "$file_size_mb" -gt "$MAX_SIZE_MB" ]; then
-    	    echo -e "${RED}Error: File/Directory '$file_path' exceeds maximum size limit of ${MAX_SIZE_MB}MB (${file_size_mb}MB)${NC}"
-            continue
-	fi
-
-	# obtem o espaço livre (em bytes) na partição onde esta o ficheiro
-	# --output=avail: mostra apenas a coluna do espaco disponível
-	# -B1: define a unidade em bytes
-	# tail -1: corta o cabeçalho
-	available_space=$(df --output=avail -B1 "$FILES_DIR" | tail -1)
-   	if [ "$available_space" -lt "$file_size_bytes" ]; then
-            echo -e "${RED}Error: Insufficient disk space to move '$file_path'${NC}"
-            continue
+        #verifica as permissoes do ficheiro
+        if [ ! -r "$file_path" ] || [ ! -w "$file_path" ]; then
+                echo -e "${RED}Error: No read/write permission for '$file_path'${NC}"
+                exit_code=1
+                continue
         fi
 
-    	#atributos para escrever no metadata
-    	file_id=$(generate_unique_id)
-    	file_name=$(basename "$file_path")
-    	deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
-    	file_size=$(stat -c %s "$file_path")
-    	file_type=$([ -d "$file_path" ] && echo "directory" || echo "file")
-    	file_perms=$(stat -c %a "$file_path")
-    	file_owner=$(stat -c "%U:%G" "$file_path")
-    
-    local escaped_path=$(echo "$file_realpath" | sed 's/[\/&]/\\&/g')
-    sed -i "/$escaped_path/d" "$METADATA_FILE" 2>/dev/null
+        file_realpath=$(realpath "$file_path")
+        recycle_bin_realpath=$(realpath "$RECYCLE_BIN_DIR")
 
-	mv "$file_realpath" "$FILES_DIR/$file_id"
-	retcode=$?
-	if [ $retcode -eq 0 ]; then
-	    echo -e "${GREEN}Sucessful $file_name delete!${NC}"
-	    echo "$file_id,$file_name,$file_realpath,$deletion_date,$file_size,$file_type,$file_perms,$file_owner" >> "$METADATA_FILE"
-	    echo "[$deletion_date] Successful [DELETE] $file_name ($file_realpath) ID:$file_id USER:$file_owner" >> "$LOG_FILE"
-	else
-	    echo -e "${RED}mv funcion failed with $retcode code error${NC}"
-	fi
+        #verifica se é o recycle bin
+            if [[ "$file_realpath" == "$recycle_bin_realpath"* ]]; then
+                echo -e "${RED}Error: Cannot delete the recycle bin directory itself or its contents.${NC}"
+                exit_code=1
+                continue
+        fi
+
+        #Calcular o tamanho do ficheiro/diretorio
+        if [ -d "$file_path" ]; then
+                file_size_bytes=$(du -sb "$file_path" | cut -f1)
+        else
+                file_size_bytes=$(stat -c %s "$file_path")
+        fi
+
+        file_size_mb=$((file_size_bytes / 1024 / 1024))
+
+        if [ "$file_size_mb" -gt "$MAX_SIZE_MB" ]; then
+                echo -e "${RED}Error: File/Directory '$file_path' exceeds maximum size limit of ${MAX_SIZE_MB}MB (${file_size_mb}MB)${NC}"
+                exit_code=1
+                continue
+        fi
+
+        # obtem o espaço livre (em bytes) na partição onde esta o ficheiro
+        # --output=avail: mostra apenas a coluna do espaco disponível
+        # -B1: define a unidade em bytes
+        # tail -1: corta o cabeçalho
+        available_space=$(df --output=avail -B1 "$FILES_DIR" | tail -1)
+        if [ "$available_space" -lt "$file_size_bytes" ]; then
+                echo -e "${RED}Error: Insufficient disk space to move '$file_path'${NC}"
+                exit_code=1
+                continue
+            fi
+
+        #atributos para escrever no metadata
+        file_id=$(generate_unique_id)
+        file_name=$(basename "$file_path")
+        deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
+        file_size=$(stat -c %s "$file_path")
+        file_type=$([ -d "$file_path" ] && echo "directory" || echo "file")
+        file_perms=$(stat -c %a "$file_path")
+        file_owner=$(stat -c "%U:%G" "$file_path")
+        
+        local escaped_path=$(echo "$file_realpath" | sed 's/[\/&]/\\&/g')
+        sed -i "/$escaped_path/d" "$METADATA_FILE" 2>/dev/null
+
+        mv "$file_realpath" "$FILES_DIR/$file_id"
+        retcode=$?
+        if [ $retcode -eq 0 ]; then
+            echo -e "${GREEN}Sucessful $file_name delete!${NC}"
+            echo "$file_id,$file_name,$file_realpath,$deletion_date,$file_size,$file_type,$file_perms,$file_owner" >> "$METADATA_FILE"
+            echo "[$deletion_date] Successful [DELETE] $file_name ($file_realpath) ID:$file_id USER:$file_owner" >> "$LOG_FILE"
+        else
+            echo -e "${RED}mv funcion failed with $retcode code error${NC}"
+        fi
     done
-    return 0
+
+    return $exit_code
 }
 
 #################################################
@@ -914,7 +918,7 @@ main() {
         help|--help|-h)
             display_help
             ;;
-        statistics)
+        statistics|stats)
             show_statistics
             ;;
         *)
