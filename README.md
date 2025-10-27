@@ -67,7 +67,7 @@ Variable | Default Value | Description
 * `RETENTION_DAYS` | `30` | Days of file retention before automatic cleanup (currently a **TODO** function).
 
 ## Examples
-[Detailed usage examples with screenshots]
+![Recycle Bin Statistics](screenshots/statistics_function_example.png)
 
 ## Known Issues
 - TODO: **Automatic Cleanup:** Implement automatic cleanup of files based on age (`RETENTION_DAYS=30`).
