@@ -1,6 +1,6 @@
 #################################################
 # Linux Recycle Bin Simulation
-# Author: Simão Pinto
+# Author: Rodrigo Simões & Simão Pinto
 # Date: 13/10/2025
 # Description: Shell-based recycle bin system
 #################################################
@@ -12,8 +12,7 @@ METADATA_FILE="$RECYCLE_BIN_DIR/metadata.db"
 LOG_FILE="$RECYCLE_BIN_DIR/recyclebin.log"
 CONFIG_FILE="$RECYCLE_BIN_DIR/config"
 MAX_SIZE_MB=1024
-RETENTION_DAYS=30 #ainda nao usado
-#teste123
+RETENTION_DAYS=30
 
 # Color codes for output (optional)
 RED='\033[0;31m'
@@ -69,12 +68,6 @@ delete_file() {
         return 1
     fi
     
-    # Your code here
-    # Hint: Get file metadata using stat command
-    # Hint: Generate unique ID
-    # Hint: Move file to FILES_DIR with unique ID
-    # Hint: Add entry to metadata file
-
     local exit_code=0
     local paths=("$@")
 
@@ -195,13 +188,13 @@ list_recycled() {
         if [ "$detailed" = true ]; then
             echo -e "${GREEN}--------------- Item $item_count ---------------${NC}"
             echo "ID:                 $id"
-            echo "Nome Original:      $name"
-            echo "Caminho Original:   $path"
-            echo "Data de Eliminação: $date"
-            echo "Tamanho:            $human_size ($size B)"
-            echo "Tipo:               $type"
-            echo "Permissões:         $perms"
-            echo "Proprietário:       $owner"
+            echo "Original Name:      $name"
+            echo "Original path:   $path"
+            echo "Delete date: $date"
+            echo "Size:            $human_size ($size B)"
+            echo "Type:               $type"
+            echo "Permissions:         $perms"
+            echo "Proprietary:       $owner"
         else
             local display_name=$(echo "$name" | cut -c 1-25)
             if [ "${#name}" -gt 25 ]; then
@@ -272,7 +265,7 @@ restore_file() {
         return 1
     fi
 
-    echo "Input encontrado: $entry"
+    echo "Input found: $entry"
 
     IFS=',' read -r id name path date size type perms owner <<< "$entry"
     
@@ -819,26 +812,26 @@ preview_file() {
 
     #preview do ficheiro
     echo -e "\n${BLUE}========== Preview for ${name} (ID: ${id}) ==========${NC}"
-    echo "Tipo: $type"
-    echo "Caminho Original: $path"
-    echo "Data de Eliminação: $date"
-    echo "Tamanho: $(human_readable_size "$size")"
+    echo "Type: $type"
+    echo "Original Path: $path"
+    echo "Delete date: $date"
+    echo "Size: $(human_readable_size "$size")"
 
     #determinar o tipo de ficheiro e mostrar o conteudo
     local file_type_info=$(file -b "$file_path_in_trash")
 
     #verifica se é um ficheiro texto
     if [[ "$file_type_info" =~ text|script ]]; then
-        echo -e "${GREEN}--- Primeiras 10 linhas (Texto/Script) ---${NC}"
+        echo -e "${GREEN}------ First 10 Lines (Text/Script) ------${NC}"
         head -n 10 "$file_path_in_trash"
         echo -e "${GREEN}------------------------------------------${NC}"
         
     #trata de ficheiro binário
     else
-        echo -e "${YELLOW}--- Ficheiro Binário/Não-Texto Detectado ---${NC}"
-        echo "Informação Detalhada do Ficheiro (comando 'file'):"
+        echo -e "${YELLOW}--- Binary/Non-Text File Detected ---${NC}"
+        echo "Detailed File Information (command “file”):"
         echo -e "-> ${file_type_info}"
-        echo -e "${YELLOW}--- Não é possível mostrar o conteúdo ---${NC}"
+        echo -e "${YELLOW}--- Unable to display content ---${NC}"
     fi
 
     echo -e "${BLUE}===================================================${NC}\n"
@@ -864,12 +857,13 @@ OPTIONS:
 	2. list----------------------------List all items in recycle bin
 	3. restore <id> or <filename>------Restore file by ID or Name
 	4. search <pattern>----------------Search for files by name
-	5. preview <ID>--------------------Show first 10 lines of a text file
-	6. quota---------------------------Check storage usage against MAX_SIZE 
-	7. empty---------------------------Permanently delete all items
-	    8. empty <ID>----------------------Delete single item by ID
-	    9. empty --force ------------------Flag to skip delete confirmation  
-	10. help----------------------------Display this help message
+	5. stats---------------------------Show recycle bin statistics
+	6. preview <ID>--------------------Show first 10 lines of a text file
+	7. quota---------------------------Check storage usage against MAX_SIZE 
+	8. empty---------------------------Permanently delete all items
+	    9. empty <ID>------------------Delete single item by ID
+	    10. empty --force -------------Flag to skip delete confirmation  
+	11. help---------------------------Display this help message
 EXAMPLES:
 	$0 delete myfile.txt
 	$0 list
