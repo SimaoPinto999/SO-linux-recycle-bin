@@ -744,31 +744,31 @@ check_quota() {
     #verificar se o current size é maior que o maximo size bytes 
     if [ "$current_size_bytes" -gt "$max_size_bytes" ]; then
         
-        echo -e "\n${RED}================== QUOTA EXCEDIDA ===================${NC}"
-        echo -e "${RED}WARNING:${NC} O Recycle Bin excedeu o limite máximo de ${MAX_SIZE_MB}MB."
-        echo -e "${RED}Uso Atual:${NC} ${current_size_mb}MB (Limite: ${MAX_SIZE_MB}MB)"
+        echo -e "\n${RED}================== QUOTA EXCEEDED ===================${NC}"
+        echo -e "${RED}WARNING:${NC} The Recycle Bin has exceeded its maximum limit. ${MAX_SIZE_MB}MB."
+        echo -e "${RED}Current usage:${NC} ${current_size_mb}MB (Limit: ${MAX_SIZE_MB}MB)"
         echo -e "${RED}=====================================================${NC}\n"
 
         #usar auto_cleanup 
         if command -v auto_cleanup >/dev/null 2>&1; then
-            echo -e "${YELLOW}A iniciar limpeza automática (auto_cleanup) para liberar espaço...${NC}"
+            echo -e "${YELLOW}Starting automatic cleanup (auto_cleanup) to free up space...${NC}"
             
             if auto_cleanup; then
-                echo -e "${GREEN}Limpeza automática concluída com sucesso. Por favor, verifique o quota novamente.${NC}"
+                echo -e "${GREEN}Automatic cleaning completed successfully. Please check your quota again.${NC}"
             else
-                echo -e "${RED}Erro: A limpeza automática falhou em liberar espaço. Quota continua excedida.${NC}"
+                echo -e "${RED}Error: Automatic cleaning failed to free up space. Quota still exceeded.${NC}"
                 return 2
             fi
             
         else
-            echo -e "${YELLOW}AVISO: A função auto_cleanup não está acessível. A limpeza automática não pode ser executada.${NC}"
+            echo -e "${YELLOW}WARNING: The auto_cleanup function is not accessible. Automatic cleaning cannot be performed.${NC}"
         fi
         
         return 1
     else
         #quota ok
         local current_size_hr=$(human_readable_size "$current_size_bytes")
-        echo -e "${BLUE}Quota Check OK:${NC} Uso atual: ${current_size_hr} (Limite: ${MAX_SIZE_MB}MB)"
+        echo -e "${BLUE}Quota Check OK:${NC} Current usage: ${current_size_hr} (Limit: ${MAX_SIZE_MB}MB)"
         return 0 
     fi
 }
