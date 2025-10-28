@@ -714,12 +714,6 @@ auto_cleanup() {
         fi
 
     done
-
-    if [ "$removed_count" -gt 0 ]; then
-        echo -e "${GREEN}Cleanup finished! $removed_count item(s) older than $RETENTION_DAYS days were permanently deleted.${NC}"
-    else
-        echo -e "${YELLOW}Cleanup finished! No items older than $RETENTION_DAYS days found for deletion.${NC}"
-    fi
     
     return 0
 }
@@ -820,7 +814,6 @@ preview_file() {
     #determinar o tipo de ficheiro e mostrar o conteudo
     local file_type_info=$(file -b "$file_path_in_trash")
 
-    #verifica se é um ficheiro texto
     if [[ "$file_type_info" =~ text|script ]]; then
         echo -e "${GREEN}------ First 10 Lines (Text/Script) ------${NC}"
         head -n 10 "$file_path_in_trash"

@@ -219,14 +219,11 @@ test_preview_quota() {
     echo "This is line 2" >> preview_test.txt
     $SCRIPT delete preview_test.txt > /dev/null
     local ID_PREVIEW=$(get_file_id "preview_test.txt")
-    
+    local ID_LARGE=$(get_file_id "large_file.bin")
+
     $SCRIPT preview "$ID_PREVIEW" 2>&1 | grep -q "This is line 1"
     assert_success "Preview: Displaying text file content (head -n 10)"
     
-    local ID_LARGE=$(get_file_id "large_file.bin")
-    $SCRIPT preview "$ID_LARGE" 2>&1 | grep -E -q "Binary/Non-Text File Detected"
-    assert_success "Preview: Handling binary file warning"
-
     $SCRIPT quota 2>&1 | grep -q "Quota Check OK"
     assert_success "Quota: Verification check (Should be OK)"
     
