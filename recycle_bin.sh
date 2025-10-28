@@ -3,6 +3,7 @@
 # Author: Rodrigo Simões & Simão Pinto
 # Date: 13/10/2025
 # Description: Shell-based recycle bin system
+# Version: 1.0
 #################################################
 
 # Global Configuration
