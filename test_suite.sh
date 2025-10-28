@@ -1,6 +1,5 @@
 #!/bin/bash
 # Test Suite for Recycle Bin System
-# (Structured to run tests sequentially and report PASS/FAIL)
 
 SCRIPT="./recycle_bin.sh"
 PASS=0
@@ -51,12 +50,11 @@ get_file_id() {
 # --- Test Setup ---
 test_initialization() {
     echo -e "\n=== Test: Setup & Initialization ==="
-    # Pre-Cleanup: Remove previous test data
+    
     rm -rf "$RECYCLE_BIN_DIR"
     rm -f fileA.txt FileB.DOC "file with spaces #@.pdf" "file_to_restore_conflict.txt" file_to_empty.tmp large_file.bin no_perm_file.txt new_fileA.txt 2>/dev/null
     rm -rf dir_to_delete 2>/dev/null
     
-    # Run initialization (via 'help')
     $SCRIPT help > /dev/null
     assert_success "Initialization (Creation of $RECYCLE_BIN_DIR)"
 
@@ -131,11 +129,10 @@ test_list_and_stats() {
     $SCRIPT list | grep -q "fileA.txt"
     assert_success "List: Non-empty bin check"
 
-    # Check for detailed listing (using the Portuguese header 'Proprietário' from the original code)
-    $SCRIPT list --detailed | grep -q "Proprietário" 
+    $SCRIPT list --detailed | grep -q "Proprietary" 
     assert_success "List: Detailed listing (--detailed)"
 
-    # Check statistics output (robust against ANSI colors)
+    # Check statistics output (color-insensitive)
     $SCRIPT statistics | grep -E -q "Total Items:.* 7"
     assert_success "Statistics: Correct item count (7 items)"
 }

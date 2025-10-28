@@ -5,9 +5,7 @@
 * Simão Pinto - 126099
 
 ## Description
-This project is a Recycle Bin simulator for Linux-based systems, implemented entirely in **Shell Script (Bash)**. Developed as part of the **"Sistemas Operativos"** university course, the goal is to provide a safe alternative to the dangerous `rm` command, allowing users to move files and directories to a quarantine area where they can be inspected, restored to their original location, or permanently deleted.
-
-The system maintains detailed metadata (original name, source path, deletion date, permissions, and owner) to ensure accurate and complete restoration.
+This project is a Recycle Bin simulator for Linux-based systems, implemented entirely in **Shell Script (Bash)**. Developed as part of the **"Sistemas Operativos"** university course. This system maintains detailed metadata (original name, source path, deletion date, permissions, and owner) to ensure accurate and complete restoration.
 
 ## Installation
 No complex installation is required, as the system is a *standalone* Bash script.
@@ -31,7 +29,9 @@ Action | Syntax
 * **Statistics**| `$0 statistics` 
 * **Empty All** | `$0 empty` 
 * **Delete Item** | `$0 empty <ID>` 
-* **Force Empty** | `$0 empty --force` 
+* **Force Empty** | `$0 empty --force`
+* **Preview** | `$0 preview <ID>`
+* **Quota** | `$0 quota` 
 * **Help** | `$0 <help | --help | -h>` 
 
 ## Features
@@ -67,11 +67,21 @@ Variable | Default Value | Description
 * `RETENTION_DAYS` | `30` | Days of file retention before automatic cleanup (currently a **TODO** function).
 
 ## Examples
+- **Delete Files:**
+![Recycle Bin Delete](screenshots/delete_function_example.png)
+- **List Items:**
+![Recycle Bin List](screenshots/list_function_example.png)
+- **Detailed Item List:**
+![Recycle Bin List Detailed](screenshots/detailed_list_function_example.png)
+- **Restore File:**
+![Recycle Bin Restore](screenshots/restore_function_example.png)
+- **Search Items:**
+![Recycle Bin Search](screenshots/search_function_example.png)
+- **View Statistics:**
 ![Recycle Bin Statistics](screenshots/statistics_function_example.png)
 
 ## Known Issues
 - TODO: **Automatic Cleanup:** Implement automatic cleanup of files based on age (`RETENTION_DAYS=30`).
-- Large Files: Files larger than MAX_SIZE_MB (default 1024MB) are rejected upon deletion.
 
 ## References
 - Bash Shell Programming Documentation (Gnu/Linux)

@@ -565,7 +565,7 @@ search_recycled() {
 
 #################################################
 # Function: escape_regex
-# Description: Helper function that escapes regex special characters for literal search
+# Description: Helper function that escapes regex special characters for literal bash search
 # Parameters: $1 - string to escape
 # Returns: Prints escaped string to stdout
 #################################################
@@ -857,7 +857,7 @@ OPTIONS:
 	2. list----------------------------List all items in recycle bin
 	3. restore <id> or <filename>------Restore file by ID or Name
 	4. search <pattern>----------------Search for files by name
-	5. stats---------------------------Show recycle bin statistics
+	5. statistics----------------------Show recycle bin statistics
 	6. preview <ID>--------------------Show first 10 lines of a text file
 	7. quota---------------------------Check storage usage against MAX_SIZE 
 	8. empty---------------------------Permanently delete all items
@@ -866,10 +866,13 @@ OPTIONS:
 	11. help---------------------------Display this help message
 EXAMPLES:
 	$0 delete myfile.txt
-	$0 list
+	$0 list (--detailed)
 	$0 restore 1696234567_abc123
 	$0 search "*.pdf"
-	$0 empty
+	$0 empty ([ID] | --force)
+    $0 statistics | stats
+    $0 preview 1696234567_abc123
+    $0 quota
 EOF
     return 0
 }
