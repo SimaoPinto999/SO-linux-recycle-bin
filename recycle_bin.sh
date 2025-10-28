@@ -118,6 +118,7 @@ delete_file() {
         # tail -1: corta o cabeçalho
         available_space=$(df --output=avail -B1 "$FILES_DIR" | tail -1)
         if [ "$available_space" -lt "$file_size_bytes" ]; then
+                auto_cleanup
                 echo -e "${RED}Error: Insufficient disk space to move '$file_path'${NC}"
                 exit_code=1
                 continue
@@ -809,7 +810,6 @@ preview_file() {
         return 1
     fi
 
-
     #preview do ficheiro
     echo -e "\n${BLUE}========== Preview for ${name} (ID: ${id}) ==========${NC}"
     echo "Type: $type"
@@ -886,7 +886,7 @@ EOF
 main() {
     # Initialize recycle bin
     initialize_recyclebin
-
+    auto_cleanup
     # Parse command line arguments
     case "$1" in
         delete)
