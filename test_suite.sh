@@ -122,6 +122,17 @@ test_delete_success() {
     assert_success "Delete: File for conflict test"
 }
 
+test_size_limits() {
+    echo -e "\n=== Teste: Size and Quota Limits ==="
+    
+    dd if=/dev/zero of=huge_file.bin bs=1M count=1050 2>/dev/null
+
+    $SCRIPT delete huge_file.bin &>/dev/null
+    assert_fail "Delete: Reject file exceeding MAX_SIZE_MB (1050MB > 1024MB)"
+    
+    rm -f huge_file.bin 2>/dev/null
+}
+
 test_list_and_stats() {
     echo -e "\n=== Test: List & Statistics ==="
     
@@ -200,6 +211,30 @@ test_empty() {
     assert_success "Empty: Warning on empty bin"
 }
 
+test_preview_quota() {
+    echo -e "\n=== Teste: Preview and Quota ==="
+    
+    # Pre-condition: Delete a text file to test preview
+    echo "This is line 1" > preview_test.txt
+    echo "This is line 2" >> preview_test.txt
+    $SCRIPT delete preview_test.txt > /dev/null
+    local ID_PREVIEW=$(get_file_id "preview_test.txt")
+    
+    $SCRIPT preview "$ID_PREVIEW" 2>&1 | grep -q "This is line 1"
+    assert_success "Preview: Displaying text file content (head -n 10)"
+    
+    local ID_LARGE=$(get_file_id "large_file.bin")
+    $SCRIPT preview "$ID_LARGE" 2>&1 | grep -E -q "Binary/Non-Text File Detected"
+    assert_success "Preview: Handling binary file warning"
+
+    $SCRIPT quota 2>&1 | grep -q "Quota Check OK"
+    assert_success "Quota: Verification check (Should be OK)"
+    
+    $SCRIPT empty "$ID_PREVIEW" > /dev/null
+    $SCRIPT empty "$ID_LARGE" > /dev/null
+    rm -f preview_test.txt 2>/dev/null
+}
+
 # --- Test Execution ---
 echo "========================================="
 echo " Recycle Bin Test Suite"
@@ -209,10 +244,13 @@ test_initialization
 
 test_delete_errors
 test_delete_success
+test_size_limits
 test_list_and_stats
 test_search
 test_restore
 test_empty
+test_preview_quota
+
 
 global_teardown
 
