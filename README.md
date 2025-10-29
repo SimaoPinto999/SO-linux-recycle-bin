@@ -5,7 +5,7 @@
 * Simão Pinto - 126099
 
 ## Description
-This project is a Recycle Bin simulator for Linux-based systems, implemented entirely in **Shell Script (Bash)**. Developed as part of the **"Sistemas Operativos"** university course. This system maintains detailed metadata (original name, source path, deletion date, permissions, and owner) to ensure accurate and complete restoration.
+This project is a Recycle Bin simulator for Linux-based systems, implemented entirely in **Shell Script (Bash)**. Developed as part of the **"Sistemas Operativos"** university course. This system maintains detailed metadata to ensure accurate and complete restoration.
 
 ## Installation
 No complex installation is required, as the system is a *standalone* Bash script.
@@ -37,7 +37,7 @@ Action | Syntax
 ## Features
 ### Core Functionality
 - **Delete (`delete`):** Moves files and directories to quarantine.
-- **Metadata Management:** Stores the original path, date, permissions, and file owner.
+- **List (`list (--detailed)`)**: Displays all items in the recycle bin, with optional detailed view.
 - **Restore (`restore`):** Restores files to the original path, recovering permissions and owner (subject to execution permissions).
 - **Conflict Resolution:** During restoration, detects name conflicts and allows overwriting or renaming.
 - **Search (`search`):** Allows searching for items by ID, name, or original path.
@@ -45,7 +45,7 @@ Action | Syntax
 - **Log Management:** Logs all deletion and emptying operations.
 
 ### Advanced Features
-- **Statistics (`statistics`):** Displays detailed metrics:
+- **Statistics (`statistics/stats`):** Displays detailed metrics:
     - Total item count.
     - Total space used and quota percentage (`MAX_SIZE_MB=1024`).
     - Breakdown by type (files vs. directories).
@@ -54,6 +54,10 @@ Action | Syntax
     - Selective deletion by ID (`$0 empty <ID>`).
     - Total emptying (`$0 empty`).
     - Supports the `--force` flag for complete emptying without confirmation.
+- **Preview (`preview`):** 
+    - Shows the first 10 lines of a specific item without restoring or deleting it.
+- **Quota Management (`quota`):** 
+    - Displays current usage against the defined quota (default: `MAX_SIZE_MB=1024`).
 
 ## Configuration
 The main configurations are defined in the header of the script.
@@ -81,9 +85,10 @@ Variable | Default Value | Description
 ![Recycle Bin Statistics](screenshots/statistics_function_example.png)
 
 ## Known Issues
-- TODO: **Automatic Cleanup:** Implement automatic cleanup of files based on age (`RETENTION_DAYS=30`).
+None at the moment.
 
 ## References
 - Bash Shell Programming Documentation (Gnu/Linux)
-- `stat`, `grep`, `sed`, `awk`, `bc` utility documentation.
 - **AI Assistance:** Architectural design review and debugging assistance provided by **Gemini** (a LLM by Google).
+- ShellCheck - <https://www.shellcheck.net/>.
+- `stat`, `grep`, `sed`, `awk`, `bc` utility documentation.

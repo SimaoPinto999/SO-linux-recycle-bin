@@ -1,7 +1,8 @@
+#!/bin/bash
 #################################################
 # Linux Recycle Bin Simulation
 # Author: Rodrigo Simões & Simão Pinto
-# Date: 13/10/2025
+# Date: 29/10/2025
 # Description: Shell-based recycle bin system
 # Version: 1.0
 #################################################
@@ -29,17 +30,16 @@ NC='\033[0m' # No Color
 #################################################
 initialize_recyclebin() {
     if [ ! -d "$RECYCLE_BIN_DIR" ]; then
-	echo "Creating recycle_bin directory..."
+	    echo "Creating recycle_bin directory..."
         mkdir -p "$FILES_DIR"
         touch "$METADATA_FILE"
         echo "# Recycle Bin Metadata" > "$METADATA_FILE"
         echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" >> "$METADATA_FILE"
-	touch "$LOG_FILE"
-	echo "# Recycle Bin Log" > "$LOG_FILE"
-	touch "$CONFIG_FILE"
-	echo "# Recycle Bin Config" > "$CONFIG_FILE"
+	    touch "$LOG_FILE"
+	    echo "# Recycle Bin Log" > "$LOG_FILE"
+	    touch "$CONFIG_FILE"
+	    echo "# Recycle Bin Config" > "$CONFIG_FILE"
         echo "Recycle bin initialized at $RECYCLE_BIN_DIR"
-	#TODO: implementar limpeza automatica dos ficheiros com mais de 30 dias
         return 0
     fi
     return 0
@@ -52,15 +52,17 @@ initialize_recyclebin() {
 # Returns: Prints unique ID to stdout
 #################################################
 generate_unique_id() {
-    local timestamp=$(date +%s)
-    local random=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 6 | head -n 1)
+    local timestamp
+    timestamp=$(date +%s)
+    local random
+    random=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 6 | head -n 1)
     echo "${timestamp}_${random}"
 }
 
 #################################################
 # Function: delete_file
 # Description: Moves file/directory to recycle bin
-# Parameters: $1 - path to file/directory
+# Parameters: $? - path(s) to file(s)/directory(s)
 # Returns: 0 on success, 1 on failure
 #################################################
 delete_file() { 
@@ -75,42 +77,49 @@ delete_file() {
     for file_path in "${paths[@]}"; do
         echo "Delete function called with: $file_path"
 
-            if [ ! -e "$file_path" ]; then
-                echo -e "${RED}Error: File '$file_path' does not exist${NC}"
-                exit_code=1
-                continue
-            fi
+        if [ ! -e "$file_path" ]; then
+            echo -e "${RED}Error: File '$file_path' does not exist${NC}"
+            exit_code=1
+            continue
+        fi
 
         #verifica as permissoes do ficheiro
         if [ ! -r "$file_path" ] || [ ! -w "$file_path" ]; then
-                echo -e "${RED}Error: No read/write permission for '$file_path'${NC}"
-                exit_code=1
-                continue
+            echo -e "${RED}Error: No read/write permission for '$file_path'${NC}"
+            exit_code=1
+            continue
         fi
+
+        local target_path_for_metadata
+        target_path_for_metadata="$file_path"
 
         file_realpath=$(realpath "$file_path")
         recycle_bin_realpath=$(realpath "$RECYCLE_BIN_DIR")
 
+        if [ -L "$file_path" ]; then
+            target_path_for_metadata=$(readlink -f "$file_path")
+        fi
+
         #verifica se é o recycle bin
-            if [[ "$file_realpath" == "$recycle_bin_realpath"* ]]; then
-                echo -e "${RED}Error: Cannot delete the recycle bin directory itself or its contents.${NC}"
-                exit_code=1
-                continue
+        if [[ "$file_realpath" == "$recycle_bin_realpath"* ]]; then
+            echo -e "${RED}Error: Cannot delete the recycle bin directory itself or its contents.${NC}"
+            exit_code=1
+            continue
         fi
 
         #Calcular o tamanho do ficheiro/diretorio
-        if [ -d "$file_path" ]; then
-                file_size_bytes=$(du -sb "$file_path" | cut -f1)
+        if [ -d "$target_path_for_metadata" ]; then
+            file_size_bytes=$(du -sb "$target_path_for_metadata" | cut -f1)
         else
-                file_size_bytes=$(stat -c %s "$file_path")
+            file_size_bytes=$(stat -c %s "$target_path_for_metadata")
         fi
 
         file_size_mb=$((file_size_bytes / 1024 / 1024))
 
         if [ "$file_size_mb" -gt "$MAX_SIZE_MB" ]; then
-                echo -e "${RED}Error: File/Directory '$file_path' exceeds maximum size limit of ${MAX_SIZE_MB}MB (${file_size_mb}MB)${NC}"
-                exit_code=1
-                continue
+            echo -e "${RED}Error: File/Directory '$file_path' exceeds maximum size limit of ${MAX_SIZE_MB}MB (${file_size_mb}MB)${NC}"
+            exit_code=1
+            continue
         fi
 
         # obtem o espaço livre (em bytes) na partição onde esta o ficheiro
@@ -119,29 +128,32 @@ delete_file() {
         # tail -1: corta o cabeçalho
         available_space=$(df --output=avail -B1 "$FILES_DIR" | tail -1)
         if [ "$available_space" -lt "$file_size_bytes" ]; then
-                auto_cleanup
-                echo -e "${RED}Error: Insufficient disk space to move '$file_path'${NC}"
-                exit_code=1
-                continue
-            fi
+            auto_cleanup
+            echo -e "${RED}Error: Insufficient disk space to move '$file_path'${NC}"
+            exit_code=1
+            continue
+        fi
 
         #atributos para escrever no metadata
         file_id=$(generate_unique_id)
         file_name=$(basename "$file_path")
         deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
         file_size=$(stat -c %s "$file_path")
-        file_type=$([ -d "$file_path" ] && echo "directory" || echo "file")
+
+        file_type=$([ -L "$file_path" ] && echo "symlink" || ([ -d "$file_path" ] && echo "directory" || echo "file"))
+        
         file_perms=$(stat -c %a "$file_path")
         file_owner=$(stat -c "%U:%G" "$file_path")
         
-        local escaped_path=$(echo "$file_realpath" | sed 's/[\/&]/\\&/g')
+        local escaped_path
+        escaped_path=$(echo "$file_realpath" | sed 's/[\/&]/\\&/g')
         sed -i "/$escaped_path/d" "$METADATA_FILE" 2>/dev/null
 
-        mv "$file_realpath" "$FILES_DIR/$file_id"
+        mv "$file_path" "$FILES_DIR/$file_id"
         retcode=$?
         if [ $retcode -eq 0 ]; then
             echo -e "${GREEN}Sucessful $file_name delete!${NC}"
-            echo "$file_id,$file_name,$file_realpath,$deletion_date,$file_size,$file_type,$file_perms,$file_owner" >> "$METADATA_FILE"
+            echo "$file_id,$file_name,$file_path,$deletion_date,$file_size,$file_type,$file_perms,$file_owner" >> "$METADATA_FILE"
             echo "[$deletion_date] Successful [DELETE] $file_name ($file_realpath) ID:$file_id USER:$file_owner" >> "$LOG_FILE"
         else
             echo -e "${RED}mv funcion failed with $retcode code error${NC}"
@@ -167,7 +179,7 @@ list_recycled() {
     fi
 
     #verifica se o lixo está vazio a partir do ficheiro metadata
-    if [ ! -s "$METADATA_FILE" ] || [ $(wc -l < "$METADATA_FILE") -le 2 ]; then
+    if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 2 ]; then
         echo -e "${YELLOW}The recycle bin is empty. Nothing to show.${NC}"
         return 0
     fi
@@ -185,7 +197,8 @@ list_recycled() {
         item_count=$((item_count + 1))
         total_size=$((total_size + size))
         
-        local human_size=$(human_readable_size "$size")
+        local human_size
+        human_size=$(human_readable_size "$size")
 
         if [ "$detailed" = true ]; then
             echo -e "${GREEN}--------------- Item $item_count ---------------${NC}"
@@ -198,7 +211,8 @@ list_recycled() {
             echo "Permissions:         $perms"
             echo "Proprietary:       $owner"
         else
-            local display_name=$(echo "$name" | cut -c 1-25)
+            local display_name
+            display_name=$(echo "$name" | cut -c 1-25)
             if [ "${#name}" -gt 25 ]; then
                 display_name="${display_name}..."
             fi
@@ -207,7 +221,8 @@ list_recycled() {
         fi
     done < <(tail -n +3 "$METADATA_FILE")
     
-    local total_size_hr=$(human_readable_size "$total_size")
+    local total_size_hr
+    total_size_hr=$(human_readable_size "$total_size")
     echo ""
     echo -e "Total item count: ${GREEN}$item_count${NC}"
     echo -e "Total storage used: ${GREEN}$total_size_hr ($total_size B)${NC}"
@@ -313,7 +328,8 @@ restore_file() {
                     fi
                     ;;
                 2) 
-                    local dir="$(dirname -- "$path")"
+                    local dir
+                    dir="$(dirname -- "$path")"
                     local newpath=""
                     local valid_name=0
 
@@ -391,6 +407,10 @@ restore_file() {
         echo -e "${YELLOW}Warning: Metadata entry not found for ID '$id'.${NC}"
     fi
 
+    local restore_date
+    restore_date=$(date "+%Y-%m-%d %H:%M:%S")
+    echo "[$restore_date] Successful [RESTORE] $name (Restored to: $path) ID:$id" >> "$LOG_FILE"
+
     return 0
 }
 
@@ -466,7 +486,8 @@ empty_recyclebin() {
         fi
         
         #log
-        local deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
+        local deletion_date
+        deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
         echo "[$deletion_date] Successful [PERMANENT DELETE] $name (ID:$id) from recycle bin." >> "$LOG_FILE"
         
     #modo2: apagar tudo
@@ -502,7 +523,8 @@ empty_recyclebin() {
         echo -e "${GREEN}Recycle bin successfully emptied.${NC}"
         
         #log
-        local deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
+        local deletion_date
+        deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
         echo "[$deletion_date] Successful [EMPTY ALL] Recycle bin emptied." >> "$LOG_FILE"
     fi
     return 0
@@ -524,14 +546,15 @@ search_recycled() {
         return 1
     fi
     
-    if [ ! -s "$METADATA_FILE" ] || [ $(wc -l < "$METADATA_FILE") -le 2 ]; then
+    if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 2 ]; then
         echo -e "${YELLOW}The recycle bin is empty. Nothing to search.${NC}"
         return 0
     fi
 
     echo -e "\n=============== Search Results for '${GREEN}$pattern${NC}' ==============\n"
 
-    local safe_pattern=$(escape_regex "$pattern")
+    local safe_pattern
+    safe_pattern=$(escape_regex "$pattern")
     search_results=$(tail -n +3 "$METADATA_FILE" | grep -iE "$safe_pattern" || true)
 
     if [ -z "$search_results" ]; then
@@ -548,9 +571,11 @@ search_recycled() {
         name=$(echo "$name" | tr -d '"')
         
         item_count=$((item_count + 1))
-        local human_size=$(human_readable_size "$size")
+        local human_size
+        human_size=$(human_readable_size "$size")
         
-        local display_name=$(echo "$name" | cut -c 1-25)
+        local display_name
+        display_name=$(echo "$name" | cut -c 1-25)
         if [ "${#name}" -gt 25 ]; then
             display_name="${display_name}..."
         fi
@@ -574,7 +599,8 @@ search_recycled() {
 escape_regex() {
     # Lista de caracteres de regex a escapar:
     # . \ + * ? [ ] ^ $ ( ) { } | /
-    local escaped_pattern=$(echo "$1" | sed 's/[.\[\]\*\+\?\\\/\^$(){}|]/\\&/g')
+    local escaped_pattern
+    escaped_pattern=$(echo "$1" | sed 's/[.\[\]\*\+\?\\\/\^$(){}|]/\\&/g')
     echo "$escaped_pattern"
 }
 
@@ -584,7 +610,6 @@ escape_regex() {
 # Parameters: None
 # Returns: 0 on success
 #################################################
-
 show_statistics(){
     local item_count=0
     local total_size_bytes=0
@@ -596,7 +621,7 @@ show_statistics(){
     local oldest_item=""
     local count_loop=0 # Para calcular a média
 
-    if [ ! -s "$METADATA_FILE" ] || [ $(wc -l < "$METADATA_FILE") -le 2 ]; then
+    if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 2 ]; then
         echo -e "${YELLOW}The recycle bin is empty. Nothing to show.${NC}"
         return 0
     fi
@@ -622,7 +647,8 @@ show_statistics(){
             dir_count=$((dir_count + 1))
         fi
 
-        local current_timestamp=$(date -d "$date" +%s)
+        local current_timestamp
+        current_timestamp=$(date -d "$date" +%s)
         
         if [ -z "$oldest_date" ] || [ "$current_timestamp" -lt "$(date -d "$oldest_date" +%s)" ]; then
             oldest_date="$date"
@@ -643,21 +669,23 @@ show_statistics(){
 
     local avg_size_bytes=0
     if [ "$item_count" -gt 0 ]; then
-        # Nota: Usamos 'bc' para garantir a divisão correta (ponto flutuante)
+        # usamos 'bc' para garantir a divisao correta
         avg_size_bytes=$(echo "scale=0; $total_size_bytes / $item_count" | bc)
     fi
-    local avg_size_hr=$(human_readable_size "$avg_size_bytes")
+    local avg_size_hr
+    avg_size_hr=$(human_readable_size "$avg_size_bytes")
     echo -e "${GREEN}Average Item Size:${NC} $avg_size_hr"
 
     local max_size_bytes=$((MAX_SIZE_MB * 1024 * 1024))
-    local usage_percentage=$(calculate_percentage $total_size_bytes $max_size_bytes)
-    local total_size_hr=$(human_readable_size "$total_size_bytes")
+    local usage_percentage
+    usage_percentage=$(calculate_percentage $total_size_bytes $max_size_bytes)
+    local total_size_hr
+    total_size_hr=$(human_readable_size "$total_size_bytes")
 
     echo -e "${GREEN}Storage Used:${NC} $total_size_hr"
     echo "- Max Size: ${MAX_SIZE_MB}MB"
     echo "- Usage Percentage: ${usage_percentage}%"
 
-    # Requisito 4: Show oldest and newest items
     echo -e "${GREEN}Age Analysis:${NC}"
     echo "- Oldest Change: $oldest_item (Date: $oldest_date)"
     echo "- Newest Change: $newest_item (Date: $newest_date)"
@@ -691,13 +719,15 @@ calculate_percentage() {
 # Returns: 0 on success
 #################################################
 auto_cleanup() {
-    local deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
+    local deletion_date
+    deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
     local removed_count=0
     
     echo "[$deletion_date] Running [AUTO CLEANUP] for items older than $RETENTION_DAYS days..." >> "$LOG_FILE"
     
     find "$FILES_DIR" -type f -mtime +"$RETENTION_DAYS" -print0 | while IFS= read -r -d $'\0' expired_path; do
-        local expired_id=$(basename "$expired_path")
+        local expired_id
+        expired_id=$(basename "$expired_path")
         
         if grep -q "^$expired_id," "$METADATA_FILE"; then
             sed -i "/^$expired_id,/d" "$METADATA_FILE" 2>/dev/null
@@ -720,7 +750,6 @@ auto_cleanup() {
 }
 
 check_quota() {
-    #o MAX_SIZE_MB está em MB, mas o du -sb dá a saída em bytes.
     local max_size_bytes=$((MAX_SIZE_MB * 1024 * 1024))
     local current_size_bytes=0
 
@@ -729,15 +758,13 @@ check_quota() {
         current_size_bytes=$(du -sb "$FILES_DIR" 2>/dev/null | cut -f1)
     fi
 
-    #verificar se o size for 0, ou seja, se for zero está vazio 
+    #verificar se o size for 0, ou seja, se for zero esta vazio 
     if [ -z "$current_size_bytes" ]; then
         current_size_bytes=0
     fi
     
-    #converter o current sizer de bytes para megabytes 
     local current_size_mb=$((current_size_bytes / 1024 / 1024))
     
-    #verificar se o current size é maior que o maximo size bytes 
     if [ "$current_size_bytes" -gt "$max_size_bytes" ]; then
         
         echo -e "\n${RED}================== QUOTA EXCEEDED ===================${NC}"
@@ -763,7 +790,8 @@ check_quota() {
         return 1
     else
         #quota ok
-        local current_size_hr=$(human_readable_size "$current_size_bytes")
+        local current_size_hr
+        current_size_hr=$(human_readable_size "$current_size_bytes")
         echo -e "${BLUE}Quota Check OK:${NC} Current usage: ${current_size_hr} (Limit: ${MAX_SIZE_MB}MB)"
         return 0 
     fi
@@ -777,7 +805,7 @@ preview_file() {
         return 1
     fi
 
-    #pesquisar no metadata, se não for encontrado um id_target igual ao $1 do metadata dá erro 
+    #pesquisar no metadata, se não for encontrado um id_target igual ao $1 do metadata da erro 
     local entry
     entry=$(awk -F',' -v q="$id_target" '
         NR>2 && $1==q {
@@ -813,7 +841,8 @@ preview_file() {
     echo "Size: $(human_readable_size "$size")"
 
     #determinar o tipo de ficheiro e mostrar o conteudo
-    local file_type_info=$(file -b "$file_path_in_trash")
+    local file_type_info
+    file_type_info=$(file -b "$file_path_in_trash")
 
     if [[ "$file_type_info" =~ text|script ]]; then
         echo -e "${GREEN}------ First 10 Lines (Text/Script) ------${NC}"
@@ -823,7 +852,7 @@ preview_file() {
     #trata de ficheiro binário
     else
         echo -e "${YELLOW}--- Binary/Non-Text File Detected ---${NC}"
-        echo "Detailed File Information (command “file”):"
+        echo "Detailed File Information (command 'file'):"
         echo -e "-> ${file_type_info}"
         echo -e "${YELLOW}--- Unable to display content ---${NC}"
     fi

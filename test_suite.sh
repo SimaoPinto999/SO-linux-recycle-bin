@@ -62,6 +62,10 @@ test_initialization() {
     echo "content A" > fileA.txt
     echo "content B" > FileB.DOC
     mkdir -p dir_to_delete/sub_folder
+    mkdir umdiretorio
+    echo "conteúdo do primeiro diretório" > umdiretorio/doc_dir1.txt
+    mkdir outrodiretorio
+    echo "conteúdo do segundo diretório" > outrodiretorio/relatorio_dir2.pdf
     echo "content in folder" > dir_to_delete/sub_folder/subfile.log
     touch "file with spaces #@.pdf"
     touch "file_to_restore_conflict.txt"
@@ -70,6 +74,9 @@ test_initialization() {
     dd if=/dev/zero of=large_file.bin bs=1M count=15 2>/dev/null
     touch no_perm_file.txt
     chmod 444 no_perm_file.txt
+    echo "Hidden content" > .hidden_test_file.dat
+    echo "Conteúdo original e importante." > original_target.txt
+    ln -s "original_target.txt" "link_to_target.lnk"
 
     echo -e "${GREEN}Test environment ready.${NC}"
 }
@@ -106,6 +113,12 @@ test_delete_success() {
     $SCRIPT delete dir_to_delete > /dev/null
     assert_success "Delete: Directory (dir_to_delete)"
 
+    $SCRIPT delete umdiretorio/doc_dir1.txt outrodiretorio/relatorio_dir2.pdf umdiretorio outrodiretorio &>/dev/null
+    assert_success "Delete: Files from different directories"
+
+    $SCRIPT delete .hidden_test_file.dat > /dev/null
+    assert_success "Delete: Hidden file (.hidden_test_file.dat)"
+
     $SCRIPT delete "file with spaces #@.pdf" > /dev/null
     assert_success "Delete: File with complex name"
     
@@ -120,6 +133,24 @@ test_delete_success() {
 
     $SCRIPT delete file_to_restore_conflict.txt > /dev/null
     assert_success "Delete: File for conflict test"
+
+    #inicio teste links simbolicos
+    $SCRIPT delete "link_to_target.lnk" > /dev/null
+    assert_success "Delete: Symbolic Link (link_to_target.lnk)"
+    
+    [ -f "original_target.txt" ]
+    assert_success "✓ Verification: The original file (original_target.txt) still exists"
+    
+    local id_link
+    id_link=$(get_file_id "link_to_target.lnk")
+
+    [ -n "$id_link" ]
+    assert_success "✓ Verification: Metadata information created for the deleted link"
+
+    $SCRIPT empty "$id_link" > /dev/null 
+    rm -f "original_target.txt" 2>/dev/null
+
+    #fim teste links simbolicos
 }
 
 test_size_limits() {
@@ -136,7 +167,6 @@ test_size_limits() {
 test_list_and_stats() {
     echo -e "\n=== Test: List & Statistics ==="
     
-    # Check if listing contains an expected item
     $SCRIPT list | grep -q "fileA.txt"
     assert_success "List: Non-empty bin check"
 
@@ -144,8 +174,8 @@ test_list_and_stats() {
     assert_success "List: Detailed listing (--detailed)"
 
     # Check statistics output (color-insensitive)
-    $SCRIPT statistics | grep -E -q "Total Items:.* 7"
-    assert_success "Statistics: Correct item count (7 items)"
+    $SCRIPT statistics | grep -E -q "Total Items:.* 12"
+    assert_success "Statistics: Correct item count (12 items)"
 }
 
 test_search() {
@@ -158,7 +188,7 @@ test_search() {
     assert_success "Search: Non-existent item"
 
     local ID_A=$(get_file_id "fileA.txt")
-    # Check search by partial ID
+
     $SCRIPT search "${ID_A:0:5}" | grep -q "fileA.txt"
     assert_success "Search: Partial ID"
 }
@@ -187,6 +217,37 @@ test_restore() {
     
     [ "$(cat fileA.txt)" = "new content for conflict" ]
     assert_success "✓ Verification: 'fileA.txt' (original file) content unchanged"
+}
+
+test_restore_read_only() {
+    echo -e "\n=== Teste: Restore to Read-Only Directory ==="
+    
+    local target_dir="readonly_parent_dir"
+    local test_file="blocked_restore.txt"
+    local original_path="$target_dir/$test_file"
+    
+    mkdir -p "$target_dir"
+    echo "conteudo bloqueado" > "$original_path"
+    
+    $SCRIPT delete "$original_path" > /dev/null
+    
+    local id_blocked
+    id_blocked=$(get_file_id "$test_file")
+    
+    #root-only permission
+    chmod 555 "$target_dir"
+    
+    $SCRIPT restore "$id_blocked" &> /dev/null
+
+    assert_fail "Restore: Restoring to Read-Only Directory ($target_dir)"
+    
+    chmod 755 "$target_dir"
+    rm -rf "$target_dir" 2>/dev/null
+    
+    [ -n "$(get_file_id "$test_file")" ]
+    assert_success "✓ Verification: Item still has its information in metadata file"
+    
+    $SCRIPT empty "$id_blocked" > /dev/null
 }
 
 test_empty() {
@@ -245,6 +306,7 @@ test_size_limits
 test_list_and_stats
 test_search
 test_restore
+test_restore_read_only
 test_empty
 test_preview_quota
 

@@ -1,7 +1,7 @@
-# TESTING.md: Recycle Bin Test Documentation
+# TESTING.md: Recycle Bin Test Documentation (Final Version)
 
 ## Overview
-This document details the test cases executed by the `test_suite.sh` script to validate the core functionality of the Linux Recycle Bin system. The tests are designed to cover success paths, edge cases, and error handling for all major commands.
+This document details the complete set of automated test cases executed by the `run_tests.sh` script, providing a detailed sequential numbering for every setup step, execution command, and verification logic.
 
 ---
 
@@ -9,8 +9,9 @@ This document details the test cases executed by the `test_suite.sh` script to v
 
 | Component | Status | Note |
 | :--- | :--- | :--- |
-| **Test Script** | `test_suite.sh` | Automatically reports PASS/FAIL using `assert_success` and `assert_fail` functions. |
-| **Max Quota** | `MAX_SIZE_MB` | Has the value of 1024 MB. Used for size limit validation tests. |
+| **Test Script** | `run_tests.sh` | Automatically reports PASS/FAIL using `assert_success` and `assert_fail` functions. |
+| **Initial Items** | **12 items** | The setup phase creates and deletes 12 unique files/directories for statistics and integrity tests. |
+| **Max Quota** | `MAX_SIZE_MB = 1024` | Used for size limit validation tests. |
 
 ---
 
@@ -18,222 +19,201 @@ This document details the test cases executed by the `test_suite.sh` script to v
 
 ### 1. Delete Command (`delete`)
 
-#### Test Case 1.1: Delete Success (Single File)
-**Objective:** Verify that a standard file is successfully moved to the recycle bin and logged.
+#### Test Case 1.1: Delete Success (Standard File & Directory)
+**Objective:** Verify basic deletion works for standard files and directories.
 
 **Steps:**
-1. Create file: `echo "test" > temp_file.txt`
-2. Run: `$SCRIPT delete temp_file.txt`
-3. Verify `temp_file.txt` is missing from the current directory.
-4. Verify entry in `metadata.db`.
+1.1. (Setup) Create `fileA.txt` and `dir_to_delete`.
 
-**Expected Result:** Success message displayed; File is moved; `exit_status = 0`.
+1.2. (Execution) Run `$SCRIPT delete fileA.txt dir_to_delete`.
 
+1.3. **(Verification 1)** Confirm `fileA.txt` does not exist in the working directory.
+
+1.4. **(Verification 2)** Confirm `dir_to_delete` does not exist in the working directory.
+
+**Expected Result:** Deletion success; `exit_status = 0`.
 **Status:** ☐ Pass ☐ Fail
 
-#### Test Case 1.2: Delete Success (Directory)
-**Objective:** Verify that a directory (with contents) is recursively moved.
+
+#### Test Case 1.2: Delete Success (Multi-Path, Complex Names & Hidden)
+**Objective:** Verify deletion of multiple paths, complex names, and hidden files.
 
 **Steps:**
-1. Create directory: `mkdir -p test_dir/sub`
-2. Run: `$SCRIPT delete test_dir`
-3. Verify `test_dir` is missing.
+1.5. (Execution) Run `$SCRIPT delete "file with spaces #@.pdf" umdiretorio/doc_dir1.txt outrodiretorio/relatorio_dir2.pdf .hidden_test_file.dat`.
 
-**Expected Result:** Success message displayed; Directory is moved; `exit_status = 0`.
+1.6. **(Verification 1)** "file with spaces #@.pdf" moved.
 
+1.7. **(Verification 2)** `umdiretorio/doc_dir1.txt` moved.
+
+1.8. **(Verification 3)** `outrodiretorio/relatorio_dir2.pdf` moved.
+
+1.9. **(Verification 4)** `.hidden_test_file.dat` moved.
+
+**Expected Result:** Success for all deletions; `exit_status = 0`.
 **Status:** ☐ Pass ☐ Fail
 
-#### Test Case 1.3: Delete Success (Multiple Items & Complex Name)
-**Objective:** Verify deletion handles multiple arguments and files with special characters/spaces.
+
+#### Test Case 1.3: Delete Success (Symbolic Link Integrity)
+**Objective:** Ensure deleting a **link** does not delete the **original target** file.
 
 **Steps:**
-1. Run: `$SCRIPT delete fileA.txt dir_to_delete "file with spaces #@.pdf"`
-2. Verify all files are deleted from the working directory.
+1.10. (Execution) Run `$SCRIPT delete link_to_target.lnk`.
 
-**Expected Result:** Success message for each item; `exit_status = 0`.
+1.11. **(Verification 1)** Confirm successful deletion message for the link.
 
+1.12. **(Verification 2)** The target file `original_target.txt` **still exists** in the active file system.
+
+1.13. **(Verification 3)** Metadata entry for `link_to_target.lnk` created.
+
+1.14. (Cleanup) Remove the link record and the original target file.
+
+**Expected Result:** Link moved to bin, target remains intact; `exit_status = 0`.
 **Status:** ☐ Pass ☐ Fail
 
-#### Test Case 1.4: Error Handling (No Arguments)
-**Objective:** Verify the script handles zero arguments correctly.
+
+#### Test Case 1.4: Error Handling (Security & Non-Existent)
+**Objective:** Verify all security and validation errors (No Args, Non-Existent, Permission, Self-Delete).
 
 **Steps:**
-1. Run: `$SCRIPT delete`
+1.15. (Error) Run `$SCRIPT delete` (No arguments).
 
-**Expected Result:** Error message: "No file specified"; `exit_status = 1`.
+1.16. (Error) Run `$SCRIPT delete non_existent_file.txt`.
 
+1.17. (Error) Run `$SCRIPT delete no_perm_file.txt` (File lacks write permission).
+
+1.18. (Error) Run `$SCRIPT delete $HOME/.recycle_bin` (Attempt to delete the bin itself).
+
+**Expected Result:** All calls fail with the correct error message; `exit_status = 1`.
 **Status:** ☐ Pass ☐ Fail
 
-#### Test Case 1.5: Error Handling (Security Check)
-**Objective:** Prevent the user from deleting the recycle bin directory itself.
+
+#### Test Case 1.5: Error Handling (Exceeds Size Limit)
+**Objective:** Verify rejection of files larger than `MAX_SIZE_MB`.
 
 **Steps:**
-1. Run: `$SCRIPT delete $HOME/.recycle_bin`
+1.19. (Setup) Create `huge_file.bin` (1050MB).
 
-**Expected Result:** Error message: "Cannot delete the recycle bin..."; `exit_status = 1`.
+1.20. (Error) Run `$SCRIPT delete huge_file.bin`.
 
-**Status:** ☐ Pass ☐ Fail
+1.21. (Cleanup) Remove `huge_file.bin`.
 
-#### Test Case 1.6: Error Handling (Permissions)
-**Objective:** Verify deletion fails if the file lacks read/write permissions for the current user.
-
-**Steps:**
-1. Create file with read-only permissions: `chmod 444 no_perm_file.txt`
-2. Run: `$SCRIPT delete no_perm_file.txt`
-
-**Expected Result:** Error message: "No read/write permission..."; `exit_status = 1`.
-
-**Status:** ☐ Pass ☐ Fail
-
----
-
-### 2. List & Statistics Commands (`list`, `statistics`)
-
-#### Test Case 2.1: List Non-Empty Bin
-**Objective:** Verify the list command displays content when the bin is populated.
-
-**Steps:**
-1. Run: `$SCRIPT delete ...` (pre-requesite)
-2. Run: `$SCRIPT list`
-3. Check for presence of an item (e.g., `fileA.txt`).
-
-**Expected Result:** List output contains expected filenames.
-
-**Status:** ☐ Pass ☐ Fail
-
-#### Test Case 2.2: List Detailed Output
-**Objective:** Verify the `--detailed` flag works and includes specific metadata (e.g., 'Proprietário').
-
-**Steps:**
-1. Run: `$SCRIPT list --detailed`
-2. Check output for metadata headers.
-
-**Expected Result:** Output contains "Proprietário" (Owner) and detailed item blocks.
-
-**Status:** ☐ Pass ☐ Fail
-
-#### Test Case 2.3: Statistics Correct Count
-**Objective:** Verify the `statistics` function accurately counts total items (7 in the setup).
-
-**Steps:**
-1. Run: `$SCRIPT statistics`
-2. Check output for "Total Items".
-
-**Expected Result:** Output shows the total item count correctly; `exit_status = 0`.
-
+**Expected Result:** Deletion fails with size limit error message; `exit_status = 1`.
 **Status:** ☐ Pass ☐ Fail
 
 ---
 
-### 3. Search Command (`search`)
+### 2. Information and Audit Commands
 
-#### Test Case 3.1: Search by Partial Name (Case-Insensitive)
-**Objective:** Verify search finds items using partial names, regardless of case.
+#### Test Case 2.1: List & Statistics (General Information)
+**Objective:** Validate listing and statistics display correctness.
 
 **Steps:**
-1. Run: `$SCRIPT search "fileb"`
-2. Check output for "FileB.DOC".
+2.1. (Execution) Run `$SCRIPT list`.
 
-**Expected Result:** `FileB.DOC` is listed.
+2.2. **(Verification 1)** `list` command returns content (bin is not empty).
 
+2.3. (Execution) Run `$SCRIPT list --detailed`.
+
+2.4. **(Verification 2)** The detailed list shows the "Proprietary" column.
+
+2.5. (Execution) Run `$SCRIPT statistics`.
+
+2.6. **(Verification 3)** `statistics` returns the correct item count of 12.
+
+**Expected Result:** All information commands execute successfully; `exit_status = 0`.
 **Status:** ☐ Pass ☐ Fail
 
-#### Test Case 3.2: Search by Partial ID
-**Objective:** Verify search works using the unique ID.
+
+#### Test Case 2.2: Search Command
+**Objective:** Verify search functionality by partial name and ID.
 
 **Steps:**
-1. Get ID of an item (`ID_A`).
-2. Run: `$SCRIPT search $ID_A_PARTIAL`
-3. Check output for the filename.
+2.7. (Execution) Run `$SCRIPT search "fileb"`.
 
-**Expected Result:** Filename corresponding to the ID is listed.
+2.8. **(Verification 1)** Partial/case-insensitive search successfully finds `FileB.DOC`.
 
+2.9. (Execution) Run `$SCRIPT search $ID_A_PARTIAL`.
+
+2.10. **(Verification 2)** Search by partial ID finds `fileA.txt`.
+
+2.11. (Execution) Run `$SCRIPT search "nonexistent123"`.
+
+2.12. **(Verification 3)** Search for non-existent term returns "No items found" warning.
+
+**Expected Result:** All search scenarios are handled correctly; `exit_status = 0`.
 **Status:** ☐ Pass ☐ Fail
 
-#### Test Case 3.3: Search Non-Existent Item
-**Objective:** Verify an appropriate message is shown when no match is found.
+
+#### Test Case 2.3: Preview and Quota
+**Objective:** Verify content preview for text files and the system quota status.
 
 **Steps:**
-1. Run: `$SCRIPT search "nonexistent123"`
+2.13. (Execution) Run `$SCRIPT preview $ID_PREVIEW_TEST_TXT`.
 
-**Expected Result:** Output contains "No items found matching the pattern..."; `exit_status = 0`.
+2.14. **(Verification 1)** Preview displays the expected text content ("This is line 1").
 
-**Status:** ☐ Pass ☐ Fail
+2.15. (Execution) Run `$SCRIPT quota`.
 
----
+2.16. **(Verification 2)** Quota is checked and reports "Quota Check OK".
 
-### 4. Restore Command (`restore`)
-
-#### Test Case 4.1: Restore Error (Non-Existent ID)
-**Objective:** Verify restoration fails gracefully if the provided ID is invalid or not in metadata.
-
-**Steps:**
-1. Run: `$SCRIPT restore "111_nonexistent"`
-
-**Expected Result:** Error message: "No file found with ID or name..."; `exit_status = 1`.
-
-**Status:** ☐ Pass ☐ Fail
-
-#### Test Case 4.2: Restore Success (Overwrite Conflict)
-**Objective:** Verify the restoration succeeds when the user chooses to overwrite an existing destination file.
-
-**Steps:**
-1. Delete `file_to_restore_conflict.txt`.
-2. Create a conflicting file at the destination path.
-3. Run: `echo -e "1\n" | $SCRIPT restore $ID_CONFLICT` (Simulate choosing Option 1: Overwrite).
-4. Check if the file now exists in the working directory.
-
-**Expected Result:** File is restored and metadata entry is removed.
-
-**Status:** ☐ Pass ☐ Fail
-
-#### Test Case 4.3: Restore Success (Rename Conflict)
-**Objective:** Verify the restoration succeeds when the user chooses to rename the file at the destination.
-
-**Steps:**
-1. Delete `fileA.txt`.
-2. Create a conflicting file at the destination path.
-3. Run: `echo -e "2\nnew_fileA.txt\n" | $SCRIPT restore $ID_A_RENAME` (Simulate choosing Option 2: Rename, using `new_fileA.txt`).
-4. Check if the original conflicting file (`fileA.txt`) remains and the new file (`new_fileA.txt`) exists.
-
-**Expected Result:** `new_fileA.txt` exists; `fileA.txt` content is unchanged; metadata entry for ID is removed.
-
+**Expected Result:** Preview and Quota checks pass; `exit_status = 0`.
 **Status:** ☐ Pass ☐ Fail
 
 ---
 
-### 5. Empty Command (`empty`)
+### 3. Restore and Empty Commands
 
-#### Test Case 5.1: Empty Success (By ID)
-**Objective:** Verify a single item can be permanently deleted and removed from metadata.
+#### Test Case 3.1: Restore Success (Overwrite Conflict & Rename Conflict)
+**Objective:** Validate conflict resolution options during restoration.
 
 **Steps:**
-1. Get ID of an item (`ID_FILE_TO_EMPTY`).
-2. Run: `$SCRIPT empty $ID_FILE_TO_EMPTY`
-3. Verify the item is removed from `metadata.db`.
+3.1. (Execution) Run `$SCRIPT restore $ID_CONFLICT` (Simulate Option 1: Overwrite).
 
-**Expected Result:** Success message; Item is no longer in metadata; `exit_status = 0`.
+3.2. **(Verification 1)** File is restored via overwrite.
 
+3.3. (Execution) Run `$SCRIPT restore $ID_A_RENAME` (Simulate Option 2: Rename, inputting `new_fileA.txt`).
+
+3.4. **(Verification 2)** The renamed file (`new_fileA.txt`) exists.
+
+3.5. **(Verification 3)** The original conflicting file (`fileA.txt`) content remained unchanged.
+
+**Expected Result:** Both conflict resolution methods function; `exit_status = 0`.
 **Status:** ☐ Pass ☐ Fail
 
-#### Test Case 5.2: Empty Success (Total Empty with --force)
-**Objective:** Verify all contents are deleted without confirmation when using `--force`.
+
+#### Test Case 3.2: Restore Error (Destination Read-Only)
+**Objective:** Ensure `restore` fails and item is not removed from metadata if the target directory lacks write permission.
 
 **Steps:**
-1. Run: `$SCRIPT empty --force`
-2. Check the metadata file line count.
+3.6. (Setup) Change parent directory permissions to 555 (Read-Only).
 
-**Expected Result:** Metadata file contains only 2 lines (headers); `exit_status = 0`.
+3.7. (Error) Run `$SCRIPT restore $ID_BLOCKED`.
 
+3.8. **(Verification 1)** Restore fails due to permission error.
+
+3.9. **(Verification 2)** The item remains in `metadata.db`.
+
+3.10. (Cleanup) Remove Read-Only directory lock.
+
+**Expected Result:** Restore fails, item is retained in bin; `exit_status = 1`.
 **Status:** ☐ Pass ☐ Fail
 
-#### Test Case 5.3: Empty Error (Already Empty)
-**Objective:** Verify the script handles the case where the bin is already empty.
+
+#### Test Case 3.3: Empty Success (By ID & Total Empty)
+**Objective:** Validate permanent deletion of individual items and total bin contents.
 
 **Steps:**
-1. (Bin is empty from 5.2).
-2. Run: `$SCRIPT empty`
+3.11. (Execution) Run `$SCRIPT empty $ID_FILE_TO_EMPTY`.
 
-**Expected Result:** Warning message: "The recycle bin is already empty"; `exit_status = 0`.
+3.12. **(Verification 1)** Item removed from `metadata.db` (Empty by ID).
 
+3.13. (Execution) Run `$SCRIPT empty --force`.
+
+3.14. **(Verification 2)** `metadata.db` contains only 2 header lines (total cleanup).
+
+3.15. (Execution) Run `$SCRIPT empty` (Test empty bin behavior).
+
+3.16. **(Verification 3)** Command returns warning message that the bin is already empty.
+
+**Expected Result:** All forms of emptying the recycle bin function; `exit_status = 0`.
 **Status:** ☐ Pass ☐ Fail
