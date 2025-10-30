@@ -78,7 +78,7 @@ Variable | Default Value | Description
 - **Detailed Item List:**
 ![Recycle Bin List Detailed](screenshots/list_function_detailed_example.png)
 - **Restore File:**
-![Recycle Bin Restore](screenshots/restore_function.png)
+![Recycle Bin Restore](screenshots/restore_function_example.png)
 - **Search Items:**
 ![Recycle Bin Search](screenshots/search_function_example.png)
 - **View Statistics:**

@@ -892,10 +892,10 @@ EXAMPLES:
 	$0 list (--detailed)
 	$0 restore 1696234567_abc123
 	$0 search "*.pdf"
-	$0 empty ([ID] | --force)
-    $0 statistics | stats
-    $0 preview 1696234567_abc123
-    $0 quota
+	$0 empty ([ID] || --force)
+	$0 statistics || stats
+	$0 preview 1696234567_abc123
+	$0 quota
 EOF
     return 0
 }
