@@ -104,5 +104,97 @@ ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWN
 | **4. Restoration Conflict Resolution** | Enhances user experience and prevents data loss by giving the user explicit control (Overwrite/Rename/Cancel) when the target file path already exists. |
 | **5. Attribute Preservation** | Recording `PERMISSIONS` and `OWNER` guarantees that the restored file is functionally identical to the original, critical for multi-user Linux environments. |
 
+## restore_file() Flowchart
+
+```
++-----------------------------+
+|            START            |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+| 1. Validate ID / Find Entry |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+| 2. Check if File Data Exists|
+|    in $FILES_DIR/$id        |
++--------------+--------------+
+               |
+               v (N)
++-----------------------------+
+| 3. Create Parent Directory  |
+|    (mkdir -p)               |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+| 4. Conflict Check:          |
+|    Path '$path' exists?     |
++--------------+--------------+
+               |
+               v
+      +--------Y--------+-----------------------------------+
+      |                 v                                   |
+      |  +---------------------------+                      |
+      |  | 5. Display Options:       |                      |
+      |  | (1: Overwrite, 2: Rename) |                      |
+      |  +----------+----------------+                      |
+      |             |                                       |
+      | +-----------+---------------------------------+     |
+      | |             CASE REPLY (1, 2, 3)            |     |       
+      | +-------+------------------+---------------+--+     |
+      |         |                  |               |        |
+      |         v (1)              v (2)           v (3)    |
+      | +----------------+  +-------------+  +------------+ |
+      | | 5a. Overwrite? |  | 5b. Get New |  | 5c. Cancel | |
+      | | (mv -f)        |  | Unique Name |  | (Return 1) | |
+      | +----------------+  +-------------+  +------------+ |
+      |                                                     |
+      +------+----------------------------------------------+
+               | (If mv successful)
+               v
++-----------------------------+
+| 6. mv Successful?           |
+|    Set move_successful = 1  |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+| 7. Post-Move Verification   |
+|    (Check move_successful)  |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+| 8. Restore Permissions      |
+|    (chmod $perms)           |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+| 9. Restore Ownership        |
+|    (chown $owner)           |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+| 10. Remove Entry from       |
+|     $METADATA_FILE (sed -i) |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+| 11. Log Success in          |
+|     $LOG_FILE               |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+|         RETURN 0            |
++-----------------------------+
+```
+
 
 
