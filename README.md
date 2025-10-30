@@ -74,11 +74,11 @@ Variable | Default Value | Description
 - **Delete Files:**
 ![Recycle Bin Delete](screenshots/delete_function_example.png)
 - **List Items:**
-![Recycle Bin List](screenshots/list_function_example.png)
+![Recycle Bin List](screenshots/list.png)
 - **Detailed Item List:**
-![Recycle Bin List Detailed](screenshots/detailed_list_function_example.png)
+![Recycle Bin List Detailed](screenshots/listdetailed.png)
 - **Restore File:**
-![Recycle Bin Restore](screenshots/restore_function_example.png)
+![Recycle Bin Restore](screenshots/restore.png)
 - **Search Items:**
 ![Recycle Bin Search](screenshots/search_function_example.png)
 - **View Statistics:**
