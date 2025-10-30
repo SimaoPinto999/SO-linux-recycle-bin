@@ -880,7 +880,7 @@ OPTIONS:
 	2. list----------------------------List all items in recycle bin
 	3. restore <id> or <filename>------Restore file by ID or Name
 	4. search <pattern>----------------Search for files by name
-	5. statistics----------------------Show recycle bin statistics
+	5. statistics || stats-------------Show recycle bin statistics
 	6. preview <ID>--------------------Show first 10 lines of a text file
 	7. quota---------------------------Check storage usage against MAX_SIZE 
 	8. empty---------------------------Permanently delete all items
