@@ -22,17 +22,17 @@
        |          |            |
        v          v            v
  [ External Filesystem ] <-----> [ $HOME/.recycle_bin (Data Store) ]
-                               |-----------------------------------|
-                               | [ files/ ]      (File Storage)    |
-                               |   - 123_abc     (Actual data)     |
-                               |   - 456_def                       |
-                               |                                   |
-                               | [ metadata.db ] (CSV "Database")  |
-                               | (Stores paths, perms, dates)      |
-                               |                                   |
-                               | [ recyclebin.log ] (Audit Log)    |
-                               | (Tracks delete/empty actions)     |
-                               +-----------------------------------+
+                                 +---------------------------------+
+                                 | [ files/ ]      (File Storage)  |
+                                 |   - 123_abc     (Actual data)   |
+                                 |   - 456_def                     |
+                                 |                                 |
+                                 | [ metadata.db ] (CSV "Database")|
+                                 | (Stores paths, perms, dates)    |
+                                 |                                 |
+                                 | [ recyclebin.log ] (Audit Log)  |
+                                 | (Tracks delete/empty actions)   |
+                                 +---------------------------------+
 ```
 
 ## Metadata schema explanation
@@ -65,21 +65,21 @@ ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWN
 - `list_recycled()` : Displays all items currently stored in the recycle bin, offering a detailed view option (--detailed) to show all stored metadata.
 - `search_recycled()` : Allows the user to find deleted items in the metadata by matching a given pattern against the file names and other attributes.
 - `show_statistics()` : Calculates and presents an overview of the recycle bin's state, including total usage, item counts, size distribution, and the age of the oldest and newest items.
-- `preview_file()` : Provides a quick look at the contents of a deleted item by printing the first few lines, primarily for text-based files.
+- `preview_file()` : Provides a quick look at the contents of a deleted item by printing the first 10 lines, primarily for text-based files.
 - `check_quota()` : Monitors the total storage consumption against the configured maximum size and triggers the automatic cleanup routine if the limit is exceeded.
 - `empty_recyclebin()` : Performs permanent deletion of items, either removing a single item by its ID or clearing the entire contents of the recycle bin.
 - `auto_cleanup()` : Executes the scheduled maintenance by permanently deleting any files that have exceeded the defined retention period in days.
 
 ## Algorithm Explanations
 
-### A. Deletion Algorithm (`delete_file`)
+### Deletion Algorithm (`delete_file`)
 
 1.  **Input Validation:** Verify item existence, Read/Write permissions, and that the item is not the recycle bin itself.
 2.  **Size & Space Validation:** Calculate size, compare against **`$MAX_SIZE_MB`**, and check **available disk space**. Fail if any constraint is violated.
 3.  **Metadata and Movement:** **Generate a Unique ID**. **Record Metadata** (path, permissions, owner). Execute **`mv`** to move the file to `$FILES_DIR`, renaming it to the Unique ID.
 4.  **Logging:** Append the new metadata record to the **`$METADATA_FILE`** and log the event to **`$LOG_FILE`**.
 
-### B. Restoration Algorithm (`restore_file`)
+### Restoration Algorithm (`restore_file`)
 
 1.  **Lookup:** Search the **`$METADATA_FILE`** for the record corresponding to the input ID/Name.
 2.  **Conflict Resolution:** Check if the file exists at the **`ORIGINAL_PATH`**. If yes, prompt user for Overwrite, Rename, or Cancel.
@@ -87,7 +87,7 @@ ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWN
 4.  **Attribute Restoration:** Execute **`chmod`** and **`chown`** using the stored metadata values.
 5.  **Cleanup:** Remove the corresponding **Metadata Record** from the **`$METADATA_FILE`**.
 
-### C. Automatic Cleanup Algorithm (`auto_cleanup`)
+### Automatic Cleanup Algorithm (`auto_cleanup`)
 
 1.  **Identification:** Use **`find`** to locate physical files in **`$FILES_DIR`** older than **`+$RETENTION_DAYS`**.
 2.  **Metadata Synchronization:** For each expired file, locate and remove its **Metadata Record** from the **`$METADATA_FILE`**.
@@ -100,7 +100,7 @@ ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWN
 | :--- | :--- |
 | **1. Separation of Concerns (Files vs. Metadata)** | Ensures that listing and management operations are fast (only reading the small `$METADATA_FILE`) and robust against file storage corruption. |
 | **2. Timestamp-based Unique IDs** | Guarantees uniqueness across simultaneous deletions, preventing name collisions when renaming files in the flat `$FILES_DIR` structure. |
-| **3. Pre-Deletion Constraint Checks** | Ensures system stability by checking file **permissions**, **size limits**, and **disk space** before executing the irreversible `mv` operation. |
+| **3. Pre-Deletion Constraint Checks** | Ensures system stability by checking file **permissions**, **size limits**, and **disk space** before executing the irreversible `mv` and `rm` operations. |
 | **4. Restoration Conflict Resolution** | Enhances user experience and prevents data loss by giving the user explicit control (Overwrite/Rename/Cancel) when the target file path already exists. |
 | **5. Attribute Preservation** | Recording `PERMISSIONS` and `OWNER` guarantees that the restored file is functionally identical to the original, critical for multi-user Linux environments. |
 
@@ -108,7 +108,7 @@ ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWN
 
 ```
 +-----------------------------+
-|            START            |
+|   START (function called)   |
 +--------------+--------------+
                |
                v
@@ -125,7 +125,7 @@ ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWN
                v (N)
 +-----------------------------+
 | 3. Create Parent Directory  |
-|    (mkdir -p)               |
+|          (mkdir -p)         |
 +--------------+--------------+
                |
                v

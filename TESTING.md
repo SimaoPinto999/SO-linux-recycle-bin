@@ -1,7 +1,7 @@
-# TESTING.md: Recycle Bin Test Documentation (Final Version)
+# TESTING.md: Recycle Bin Test Documentation
 
 ## Overview
-This document details the complete set of automated test cases executed by the `run_tests.sh` script, providing a detailed sequential numbering for every setup step, execution command, and verification logic.
+This document details the complete set of automated test cases executed by the `test_suite.sh` script, providing a detailed sequential numbering for every setup step, execution command, and verification logic.
 
 ---
 
@@ -9,7 +9,7 @@ This document details the complete set of automated test cases executed by the `
 
 | Component | Status | Note |
 | :--- | :--- | :--- |
-| **Test Script** | `run_tests.sh` | Automatically reports PASS/FAIL using `assert_success` and `assert_fail` functions. |
+| **Test Script** | `test_suite.sh` | Automatically reports PASS/FAIL using `assert_success` and `assert_fail` functions. |
 | **Initial Items** | **12 items** | The setup phase creates and deletes 12 unique files/directories for statistics and integrity tests. |
 | **Max Quota** | `MAX_SIZE_MB = 1024` | Used for size limit validation tests. |
 
@@ -32,7 +32,7 @@ This document details the complete set of automated test cases executed by the `
 1.4. **(Verification 2)** Confirm `dir_to_delete` does not exist in the working directory.
 
 **Expected Result:** Deletion success; `exit_status = 0`.
-**Status:** ☐ Pass ☐ Fail
+**Status:** ☑️ Pass ☐ Fail
 
 
 #### Test Case 1.2: Delete Success (Multi-Path, Complex Names & Hidden)
@@ -50,7 +50,7 @@ This document details the complete set of automated test cases executed by the `
 1.9. **(Verification 4)** `.hidden_test_file.dat` moved.
 
 **Expected Result:** Success for all deletions; `exit_status = 0`.
-**Status:** ☐ Pass ☐ Fail
+**Status:** ☑️ Pass ☐ Fail
 
 
 #### Test Case 1.3: Delete Success (Symbolic Link Integrity)
@@ -68,7 +68,7 @@ This document details the complete set of automated test cases executed by the `
 1.14. (Cleanup) Remove the link record and the original target file.
 
 **Expected Result:** Link moved to bin, target remains intact; `exit_status = 0`.
-**Status:** ☐ Pass ☐ Fail
+**Status:** ☑️ Pass ☐ Fail
 
 
 #### Test Case 1.4: Error Handling (Security & Non-Existent)
@@ -84,7 +84,7 @@ This document details the complete set of automated test cases executed by the `
 1.18. (Error) Run `$SCRIPT delete $HOME/.recycle_bin` (Attempt to delete the bin itself).
 
 **Expected Result:** All calls fail with the correct error message; `exit_status = 1`.
-**Status:** ☐ Pass ☐ Fail
+**Status:** ☑️ Pass ☐ Fail
 
 
 #### Test Case 1.5: Error Handling (Exceeds Size Limit)
@@ -98,7 +98,7 @@ This document details the complete set of automated test cases executed by the `
 1.21. (Cleanup) Remove `huge_file.bin`.
 
 **Expected Result:** Deletion fails with size limit error message; `exit_status = 1`.
-**Status:** ☐ Pass ☐ Fail
+**Status:** ☑️ Pass ☐ Fail
 
 ---
 
@@ -121,7 +121,7 @@ This document details the complete set of automated test cases executed by the `
 2.6. **(Verification 3)** `statistics` returns the correct item count of 12.
 
 **Expected Result:** All information commands execute successfully; `exit_status = 0`.
-**Status:** ☐ Pass ☐ Fail
+**Status:** ☑️ Pass ☐ Fail
 
 
 #### Test Case 2.2: Search Command
@@ -141,7 +141,7 @@ This document details the complete set of automated test cases executed by the `
 2.12. **(Verification 3)** Search for non-existent term returns "No items found" warning.
 
 **Expected Result:** All search scenarios are handled correctly; `exit_status = 0`.
-**Status:** ☐ Pass ☐ Fail
+**Status:** ☑️ Pass ☐ Fail
 
 
 #### Test Case 2.3: Preview and Quota
@@ -157,7 +157,7 @@ This document details the complete set of automated test cases executed by the `
 2.16. **(Verification 2)** Quota is checked and reports "Quota Check OK".
 
 **Expected Result:** Preview and Quota checks pass; `exit_status = 0`.
-**Status:** ☐ Pass ☐ Fail
+**Status:** ☑️ Pass ☐ Fail
 
 ---
 
@@ -178,7 +178,7 @@ This document details the complete set of automated test cases executed by the `
 3.5. **(Verification 3)** The original conflicting file (`fileA.txt`) content remained unchanged.
 
 **Expected Result:** Both conflict resolution methods function; `exit_status = 0`.
-**Status:** ☐ Pass ☐ Fail
+**Status:** ☑️ Pass ☐ Fail
 
 
 #### Test Case 3.2: Restore Error (Destination Read-Only)
@@ -196,7 +196,7 @@ This document details the complete set of automated test cases executed by the `
 3.10. (Cleanup) Remove Read-Only directory lock.
 
 **Expected Result:** Restore fails, item is retained in bin; `exit_status = 1`.
-**Status:** ☐ Pass ☐ Fail
+**Status:** ☑️ Pass ☐ Fail
 
 
 #### Test Case 3.3: Empty Success (By ID & Total Empty)
@@ -216,4 +216,4 @@ This document details the complete set of automated test cases executed by the `
 3.16. **(Verification 3)** Command returns warning message that the bin is already empty.
 
 **Expected Result:** All forms of emptying the recycle bin function; `exit_status = 0`.
-**Status:** ☐ Pass ☐ Fail
+**Status:** ☑️ Pass ☐ Fail

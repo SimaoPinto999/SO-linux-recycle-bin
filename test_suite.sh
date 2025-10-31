@@ -173,7 +173,7 @@ test_list_and_stats() {
     $SCRIPT list --detailed | grep -q "Proprietary" 
     assert_success "List: Detailed listing (--detailed)"
 
-    # Check statistics output (color-insensitive)
+    # verificar estatisticas (color-insensitive)
     $SCRIPT statistics | grep -E -q "Total Items:.* 12"
     assert_success "Statistics: Correct item count (12 items)"
 }
@@ -234,7 +234,7 @@ test_restore_read_only() {
     local id_blocked
     id_blocked=$(get_file_id "$test_file")
     
-    #root-only permission
+    #permissoes de root
     chmod 555 "$target_dir"
     
     $SCRIPT restore "$id_blocked" &> /dev/null
@@ -275,7 +275,6 @@ test_empty() {
 test_preview_quota() {
     echo -e "\n=== Teste: Preview and Quota ==="
     
-    # Pre-condition: Delete a text file to test preview
     echo "This is line 1" > preview_test.txt
     echo "This is line 2" >> preview_test.txt
     $SCRIPT delete preview_test.txt > /dev/null

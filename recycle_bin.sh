@@ -100,7 +100,6 @@ delete_file() {
             target_path_for_metadata=$(readlink -f "$file_path")
         fi
 
-        #verifica se é o recycle bin
         if [[ "$file_realpath" == "$recycle_bin_realpath"* ]]; then
             echo -e "${RED}Error: Cannot delete the recycle bin directory itself or its contents.${NC}"
             exit_code=1
@@ -309,6 +308,7 @@ restore_file() {
     
     local move_successful=0
 
+    #em caso de conflito
     if [[ -e "$path" ]]; then 
         
         echo -e "${YELLOW}Warning: A file already exists at $path. Choose an action:${NC}"
@@ -399,7 +399,7 @@ restore_file() {
         echo -e "${YELLOW}Warning: Could not restore ownership to ${owner}. Elevated permissions (root) are required for this step.${NC}"
     fi
     
-    
+    #remover informacao do ficheiro/diretorio do metadata.db
     if grep -q "^$id," "$METADATA_FILE"; then
         sed -i "/^$id,/d" "$METADATA_FILE"
         echo -e "${GREEN}Metadata entry for ID '$id' removed.${NC}"
@@ -426,7 +426,6 @@ empty_recyclebin() {
 
     local skip_confirmation=false
     
-    #verifica se o primeiro argumento é --force
     if [[ "$target" == "--force" ]]; then
         skip_confirmation=true
         target=""
@@ -477,7 +476,7 @@ empty_recyclebin() {
             echo -e "${YELLOW}Warning: Physical file for ID '$id' not found in storage. Cleaning metadata.${NC}"
         fi
 
-        #remove dados do metadata
+        #remover informacao do ficheiro/diretorio do metadata.db
         if grep -q "^$id," "$METADATA_FILE"; then
             sed -i "/^$id,/d" "$METADATA_FILE" 2>/dev/null
             echo -e "${GREEN}Metadata entry for '$name' (ID: $id) removed.${NC}"
@@ -485,7 +484,7 @@ empty_recyclebin() {
             echo -e "${YELLOW}Warning: Metadata entry for ID '$id' not found after processing.${NC}"
         fi
         
-        #log
+        #log da operacao
         local deletion_date
         deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
         echo "[$deletion_date] Successful [PERMANENT DELETE] $name (ID:$id) from recycle bin." >> "$LOG_FILE"
@@ -512,7 +511,7 @@ empty_recyclebin() {
             echo -e "${RED}Error: Failed to delete all physical files from $FILES_DIR. Check permissions.${NC}"
         fi
 
-        #lmpar metadata
+        #limpar metadata
         if sed -i '3,$d' "$METADATA_FILE" 2>/dev/null; then
             echo -e "${GREEN}Metadata file successfully cleared.${NC}"
         else
@@ -522,7 +521,7 @@ empty_recyclebin() {
 
         echo -e "${GREEN}Recycle bin successfully emptied.${NC}"
         
-        #log
+        #log da operacao
         local deletion_date
         deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
         echo "[$deletion_date] Successful [EMPTY ALL] Recycle bin emptied." >> "$LOG_FILE"
@@ -619,7 +618,7 @@ show_statistics(){
     local newest_date=""
     local newest_item=""
     local oldest_item=""
-    local count_loop=0 # Para calcular a média
+    local count_loop=0 #usado para calcular a média
 
     if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 2 ]; then
         echo -e "${YELLOW}The recycle bin is empty. Nothing to show.${NC}"
@@ -669,7 +668,7 @@ show_statistics(){
 
     local avg_size_bytes=0
     if [ "$item_count" -gt 0 ]; then
-        # usamos 'bc' para garantir a divisao correta
+        # usamos o comando 'bc' para garantir uma divisão correta
         avg_size_bytes=$(echo "scale=0; $total_size_bytes / $item_count" | bc)
     fi
     local avg_size_hr
@@ -697,7 +696,7 @@ show_statistics(){
 
 #################################################
 # Function: calculate_percentage
-# Description: Helper function which calculates the percentage of a value relative to a total
+# Description: Helper function which calculates the percentage of a value relative to  total
 # Parameters: $1 - value, $2 - total
 # Returns: Prints percentage rounded to 2 decimal places
 #################################################
@@ -753,18 +752,18 @@ check_quota() {
     local max_size_bytes=$((MAX_SIZE_MB * 1024 * 1024))
     local current_size_bytes=0
 
-    #calcular o tamanho atual
+    #calcular o tamanho atual em bytes
     if [ -d "$FILES_DIR" ]; then
         current_size_bytes=$(du -sb "$FILES_DIR" 2>/dev/null | cut -f1)
     fi
 
-    #verificar se o size for 0, ou seja, se for zero esta vazio 
     if [ -z "$current_size_bytes" ]; then
         current_size_bytes=0
     fi
     
-    local current_size_mb=$((current_size_bytes / 1024 / 1024))
-    
+    local current_size_mb
+    current_size_mb=$((current_size_bytes / 1024 / 1024))
+
     if [ "$current_size_bytes" -gt "$max_size_bytes" ]; then
         
         echo -e "\n${RED}================== QUOTA EXCEEDED ===================${NC}"
@@ -789,7 +788,7 @@ check_quota() {
         
         return 1
     else
-        #quota ok
+        #quota válido
         local current_size_hr
         current_size_hr=$(human_readable_size "$current_size_bytes")
         echo -e "${BLUE}Quota Check OK:${NC} Current usage: ${current_size_hr} (Limit: ${MAX_SIZE_MB}MB)"
@@ -818,7 +817,7 @@ preview_file() {
         return 1
     fi
 
-    #extrair info
+    #extrair info do ficheiro
     IFS=',' read -r id name path date size type perms owner <<< "$entry"
     
     id=$(echo "$id" | tr -d '[:space:]')
@@ -849,7 +848,7 @@ preview_file() {
         head -n 10 "$file_path_in_trash"
         echo -e "${GREEN}------------------------------------------${NC}"
         
-    #trata de ficheiro binário
+    #se for ficheiro binário
     else
         echo -e "${YELLOW}--- Binary/Non-Text File Detected ---${NC}"
         echo "Detailed File Information (command 'file'):"

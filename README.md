@@ -5,7 +5,7 @@
 * Simão Pinto - 126099
 
 ## Description
-This project is a Recycle Bin simulator for Linux-based systems, implemented entirely in **Shell Script (Bash)**. Developed as part of the **"Sistemas Operativos"** university course. This system maintains detailed metadata to ensure accurate and complete restoration.
+This project is a Recycle Bin simulator for Linux-based systems, implemented entirely in **Shell Script (Bash)**. Developed as part of the **"Sistemas Operativos"** university course. This system maintains detailed metadata to ensure accurate and complete restoration of files and directories.
 
 ## Installation
 No complex installation is required, as the system is a *standalone* Bash script.
@@ -26,7 +26,7 @@ Action | Syntax
 * **List** | `$0 list [--detailed]` 
 * **Restore** | `$0 restore <ID | Name>` 
 * **Search** | `$0 search <pattern>` 
-* **Statistics**| `$0 statistics` 
+* **Statistics**| `$0 statistics | $0 stats` 
 * **Empty All** | `$0 empty` 
 * **Delete Item** | `$0 empty <ID>` 
 * **Force Empty** | `$0 empty --force`
@@ -68,7 +68,7 @@ Variable | Default Value | Description
 
 * `MAX_SIZE_MB` | `1024` | Maximum size limit (in MB) a single file/directory can have to be moved to the recycle bin.
 
-* `RETENTION_DAYS` | `30` | Days of file retention before automatic cleanup (currently a **TODO** function).
+* `RETENTION_DAYS` | `30` | Days of file retention before automatic cleanup.
 
 ## Examples
 - **Delete Files:**
