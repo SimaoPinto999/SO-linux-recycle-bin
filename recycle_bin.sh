@@ -83,7 +83,6 @@ delete_file() {
             continue
         fi
 
-        #verifica as permissoes do ficheiro
         if [ ! -r "$file_path" ] || [ ! -w "$file_path" ]; then
             echo -e "${RED}Error: No read/write permission for '$file_path'${NC}"
             exit_code=1
@@ -106,7 +105,6 @@ delete_file() {
             continue
         fi
 
-        #Calcular o tamanho do ficheiro/diretorio
         if [ -d "$target_path_for_metadata" ]; then
             file_size_bytes=$(du -sb "$target_path_for_metadata" | cut -f1)
         else
@@ -121,10 +119,6 @@ delete_file() {
             continue
         fi
 
-        # obtem o espaço livre (em bytes) na partição onde esta o ficheiro
-        # --output=avail: mostra apenas a coluna do espaco disponível
-        # -B1: define a unidade em bytes
-        # tail -1: corta o cabeçalho
         available_space=$(df --output=avail -B1 "$FILES_DIR" | tail -1)
         if [ "$available_space" -lt "$file_size_bytes" ]; then
             auto_cleanup
@@ -133,7 +127,6 @@ delete_file() {
             continue
         fi
 
-        #atributos para escrever no metadata
         file_id=$(generate_unique_id)
         file_name=$(basename "$file_path")
         deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
@@ -177,7 +170,6 @@ list_recycled() {
         detailed=true
     fi
 
-    #verifica se o lixo está vazio a partir do ficheiro metadata
     if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 2 ]; then
         echo -e "${YELLOW}The recycle bin is empty. Nothing to show.${NC}"
         return 0
@@ -308,7 +300,6 @@ restore_file() {
     
     local move_successful=0
 
-    #em caso de conflito
     if [[ -e "$path" ]]; then 
         
         echo -e "${YELLOW}Warning: A file already exists at $path. Choose an action:${NC}"
@@ -399,7 +390,6 @@ restore_file() {
         echo -e "${YELLOW}Warning: Could not restore ownership to ${owner}. Elevated permissions (root) are required for this step.${NC}"
     fi
     
-    #remover informacao do ficheiro/diretorio do metadata.db
     if grep -q "^$id," "$METADATA_FILE"; then
         sed -i "/^$id,/d" "$METADATA_FILE"
         echo -e "${GREEN}Metadata entry for ID '$id' removed.${NC}"
@@ -436,7 +426,6 @@ empty_recyclebin() {
         return 0
     fi
     
-    #modo1: apaga pelo id
     if [ -n "$target" ]; then 
         local id_target="$target"
         
@@ -455,14 +444,12 @@ empty_recyclebin() {
             return 1
         fi
 
-        #extrair e limpar dados
         IFS=',' read -r id name path date size type perms owner <<< "$entry"
         
         id=$(echo "$id" | tr -d '[:space:]')
         id=${id//[$'\r']/}
         name=$(echo "$name" | tr -d '"')
 
-        #apagar o ficheiro
         local file_path_in_trash="$FILES_DIR/$id"
         
         if [[ -e "$file_path_in_trash" ]]; then
@@ -476,7 +463,6 @@ empty_recyclebin() {
             echo -e "${YELLOW}Warning: Physical file for ID '$id' not found in storage. Cleaning metadata.${NC}"
         fi
 
-        #remover informacao do ficheiro/diretorio do metadata.db
         if grep -q "^$id," "$METADATA_FILE"; then
             sed -i "/^$id,/d" "$METADATA_FILE" 2>/dev/null
             echo -e "${GREEN}Metadata entry for '$name' (ID: $id) removed.${NC}"
@@ -484,14 +470,11 @@ empty_recyclebin() {
             echo -e "${YELLOW}Warning: Metadata entry for ID '$id' not found after processing.${NC}"
         fi
         
-        #log da operacao
         local deletion_date
         deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
         echo "[$deletion_date] Successful [PERMANENT DELETE] $name (ID:$id) from recycle bin." >> "$LOG_FILE"
         
-    #modo2: apagar tudo
     else 
-        #confirmação
         if [[ "$skip_confirmation" != true ]]; then
             echo -e "${YELLOW}WARNING: This action is irreversible and will permanently delete ALL contents of the recycle bin.${NC}"
             read -r -p "Are you sure you want to empty the ENTIRE recycle bin? (yes/no): " confirmation
@@ -502,7 +485,6 @@ empty_recyclebin() {
             fi
         fi
         
-        #apagar ficheiros
         echo -e "${BLUE}Deleting physical files from $FILES_DIR...${NC}"
         
         if find "$FILES_DIR" -mindepth 1 -delete 2>/dev/null; then
@@ -511,7 +493,6 @@ empty_recyclebin() {
             echo -e "${RED}Error: Failed to delete all physical files from $FILES_DIR. Check permissions.${NC}"
         fi
 
-        #limpar metadata
         if sed -i '3,$d' "$METADATA_FILE" 2>/dev/null; then
             echo -e "${GREEN}Metadata file successfully cleared.${NC}"
         else
@@ -521,7 +502,6 @@ empty_recyclebin() {
 
         echo -e "${GREEN}Recycle bin successfully emptied.${NC}"
         
-        #log da operacao
         local deletion_date
         deletion_date=$(date "+%Y-%m-%d %H:%M:%S")
         echo "[$deletion_date] Successful [EMPTY ALL] Recycle bin emptied." >> "$LOG_FILE"
@@ -618,7 +598,7 @@ show_statistics(){
     local newest_date=""
     local newest_item=""
     local oldest_item=""
-    local count_loop=0 #usado para calcular a média
+    local count_loop=0
 
     if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 2 ]; then
         echo -e "${YELLOW}The recycle bin is empty. Nothing to show.${NC}"
@@ -668,7 +648,6 @@ show_statistics(){
 
     local avg_size_bytes=0
     if [ "$item_count" -gt 0 ]; then
-        # usamos o comando 'bc' para garantir uma divisão correta
         avg_size_bytes=$(echo "scale=0; $total_size_bytes / $item_count" | bc)
     fi
     local avg_size_hr
@@ -748,11 +727,16 @@ auto_cleanup() {
     return 0
 }
 
+#################################################
+# Function: check_quota
+# Description: Displays current usage against the defined quota (default: MAX_SIZE_MB=1024).
+# Parameters: None
+# Returns: 0 on success
+#################################################
 check_quota() {
     local max_size_bytes=$((MAX_SIZE_MB * 1024 * 1024))
     local current_size_bytes=0
 
-    #calcular o tamanho atual em bytes
     if [ -d "$FILES_DIR" ]; then
         current_size_bytes=$(du -sb "$FILES_DIR" 2>/dev/null | cut -f1)
     fi
@@ -771,7 +755,6 @@ check_quota() {
         echo -e "${RED}Current usage:${NC} ${current_size_mb}MB (Limit: ${MAX_SIZE_MB}MB)"
         echo -e "${RED}=====================================================${NC}\n"
 
-        #usar auto_cleanup 
         if command -v auto_cleanup >/dev/null 2>&1; then
             echo -e "${YELLOW}Starting automatic cleanup (auto_cleanup) to free up space...${NC}"
             
@@ -788,7 +771,6 @@ check_quota() {
         
         return 1
     else
-        #quota válido
         local current_size_hr
         current_size_hr=$(human_readable_size "$current_size_bytes")
         echo -e "${BLUE}Quota Check OK:${NC} Current usage: ${current_size_hr} (Limit: ${MAX_SIZE_MB}MB)"
@@ -796,6 +778,12 @@ check_quota() {
     fi
 }
 
+#################################################
+# Function: preview_file
+# Description: Shows the first 10 lines of a specific item without restoring or deleting it.
+# Parameters: $1 - id target
+# Returns: 0 on success
+#################################################
 preview_file() {
     local id_target="$1"
 
@@ -804,7 +792,6 @@ preview_file() {
         return 1
     fi
 
-    #pesquisar no metadata, se não for encontrado um id_target igual ao $1 do metadata da erro 
     local entry
     entry=$(awk -F',' -v q="$id_target" '
         NR>2 && $1==q {
@@ -817,7 +804,6 @@ preview_file() {
         return 1
     fi
 
-    #extrair info do ficheiro
     IFS=',' read -r id name path date size type perms owner <<< "$entry"
     
     id=$(echo "$id" | tr -d '[:space:]')
@@ -826,20 +812,17 @@ preview_file() {
 
     local file_path_in_trash="$FILES_DIR/$id"
     
-    #verificar se o ficheiro realmente existe no lixo
     if [[ ! -e "$file_path_in_trash" ]]; then
         echo -e "${RED}Error: File data for ID '$id' is missing from storage (${FILES_DIR}).${NC}"
         return 1
     fi
 
-    #preview do ficheiro
     echo -e "\n${BLUE}========== Preview for ${name} (ID: ${id}) ==========${NC}"
     echo "Type: $type"
     echo "Original Path: $path"
     echo "Delete date: $date"
     echo "Size: $(human_readable_size "$size")"
 
-    #determinar o tipo de ficheiro e mostrar o conteudo
     local file_type_info
     file_type_info=$(file -b "$file_path_in_trash")
 
@@ -848,7 +831,6 @@ preview_file() {
         head -n 10 "$file_path_in_trash"
         echo -e "${GREEN}------------------------------------------${NC}"
         
-    #se for ficheiro binário
     else
         echo -e "${YELLOW}--- Binary/Non-Text File Detected ---${NC}"
         echo "Detailed File Information (command 'file'):"
@@ -906,10 +888,8 @@ EOF
 # Returns: Exit code
 #################################################
 main() {
-    # Initialize recycle bin
     initialize_recyclebin
     auto_cleanup
-    # Parse command line arguments
     case "$1" in
         delete)
             shift
